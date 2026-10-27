@@ -120,6 +120,22 @@ button, input { font: inherit; color: inherit; }
 .open-form .actions { display: flex; gap: 8px; }
 @media (min-width: 700px) { .assets { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: center; padding: 24px; } }
 
+/* 名稱設定 */
+.names { margin-bottom: 16px; }
+.names fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 10px; align-content: start; }
+.names legend { display: block; font-size: 13px; color: var(--muted); font-weight: 500; margin-bottom: 6px; padding: 0; }
+.names-grid { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+.nm-list { display: grid; gap: 8px; }
+.nm-row { display: flex; gap: 8px; }
+.nm-row input { flex: 1; min-width: 0; }
+.nm-del { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 0 12px; font-size: 13px; color: var(--muted); cursor: pointer; min-height: 44px; flex: none; }
+.nm-del:hover { color: var(--warn); border-color: var(--warn); }
+.names-form .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; }
+.acct-head, .acct-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 56px; gap: 8px; align-items: center; }
+.acct-head { font-size: 12px; color: var(--muted); }
+.acct-row .nm-del { width: 100%; padding: 0; }
+@media (min-width: 700px) { .names-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr); } }
+
 /* 表單 */
 .form { display: grid; gap: 16px; }
 .field > span, .form legend { display: block; font-size: 13px; color: var(--muted); font-weight: 500; margin-bottom: 6px; padding: 0; }
@@ -243,7 +259,39 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       <button class="icon-btn" id="next" type="button" aria-label="下個月">›</button>
       <button class="ghost" id="this-month" type="button">本月</button>
     </nav>
+    <button class="ghost" id="names-open" type="button">類別與帳戶</button>
   </header>
+
+  <section class="card names" id="names-card" aria-label="類別與帳戶管理" hidden>
+    <div class="card-head"><h2>類別與帳戶管理</h2></div>
+    <form class="names-form" id="names-form" novalidate>
+      <div class="names-grid">
+        <fieldset>
+          <legend>帳戶</legend>
+          <div class="acct-head"><span>名稱</span><span>起始金額（NT$）</span><span></span></div>
+          <div class="nm-list" id="nm-accounts"></div>
+          <button class="ghost sm" id="nm-accounts-add" type="button">＋ 新增帳戶</button>
+        </fieldset>
+        <fieldset>
+          <legend>支出類別</legend>
+          <div class="nm-list" id="nm-expense"></div>
+          <button class="ghost sm" id="nm-expense-add" type="button">＋ 新增類別</button>
+        </fieldset>
+        <fieldset>
+          <legend>收入類別</legend>
+          <div class="nm-list" id="nm-income"></div>
+          <button class="ghost sm" id="nm-income-add" type="button">＋ 新增類別</button>
+        </fieldset>
+      </div>
+      <p class="err" id="names-err" role="alert" hidden></p>
+      <div class="actions">
+        <button class="primary sm" type="submit">儲存</button>
+        <button class="ghost sm" id="names-cancel" type="button">取消</button>
+        <button class="link" id="names-reset" type="button">還原預設類別</button>
+      </div>
+      <p class="a-note">帳戶餘額 = 起始金額 + 所有收入 − 所有支出。移除帳戶不會刪除帳目，原本記在該帳戶的帳目會歸到「未指定帳戶」，該帳戶的起始金額會一併移除。類別改名後，已記錄的帳目會一起改成新名稱；移除類別不會刪除帳目，舊帳目仍保留原本的名稱。</p>
+    </form>
+  </section>
 
   <section class="summary" aria-label="本月總覽">
     <div class="sum-main">
@@ -272,15 +320,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     </div>
     <div class="assets-side">
       <div id="assets-rows"></div>
-      <button class="link" id="open-edit" type="button">設定起始金額</button>
-      <form class="open-form" id="open-form" hidden novalidate>
-        <label class="field" for="open-cash"><span>現金起始金額</span><input id="open-cash" type="number" inputmode="numeric" min="0" step="1" placeholder="0"></label>
-        <label class="field" for="open-debit"><span>金融卡起始金額</span><input id="open-debit" type="number" inputmode="numeric" min="0" step="1" placeholder="0"></label>
-        <div class="actions">
-          <button class="primary sm" type="submit">儲存</button>
-          <button class="ghost sm" id="open-cancel" type="button">取消</button>
-        </div>
-      </form>
+      <button class="link" id="open-edit" type="button">管理帳戶與起始金額</button>
     </div>
   </section>
 
@@ -300,12 +340,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
           </label>
           <fieldset>
             <legend>帳戶</legend>
-            <div class="seg alt full" role="radiogroup" aria-label="帳戶">
-              <input type="radio" name="method" id="method-cash" value="cash" checked>
-              <label for="method-cash">現金</label>
-              <input type="radio" name="method" id="method-debit" value="debit">
-              <label for="method-debit">金融卡</label>
-            </div>
+            <div class="chips" id="method-chips"></div>
           </fieldset>
           <fieldset>
             <legend>類別</legend>
@@ -370,8 +405,8 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
 (function () {
   'use strict';
 
-  var EXPENSE_CATS = ['餐飲', '交通', '購物', '居家水電', '娛樂', '醫療', '學習', '其他'];
-  var INCOME_CATS = ['薪資', '獎金', '投資', '兼職', '其他'];
+  var DEFAULT_EXPENSE = ['餐飲', '交通', '購物', '居家水電', '娛樂', '醫療', '學習', '其他'];
+  var DEFAULT_INCOME = ['薪資', '獎金', '投資', '兼職', '其他'];
   var WD = ['日', '一', '二', '三', '四', '五', '六'];
   var LS_KEY = 'ledger.v1';
 
@@ -381,16 +416,52 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   function todayParts() { var t = new Date(); return { y: t.getFullYear(), m: t.getMonth() + 1, d: t.getDate() }; }
   function money(n) { return 'NT$' + Math.round(n).toLocaleString('zh-TW'); }
   function bigMoney(n) { return (n < 0 ? '−' : '') + '<small>NT$</small>' + Math.abs(Math.round(n)).toLocaleString('zh-TW'); }
-  function signed(n) { return (n < 0 ? '−' : '+') + money(Math.abs(n)); }
-  function mname(k) { return k === 'cash' ? '現金' : (k === 'debit' ? '金融卡' : ''); }
-  function readOpening(x) {
-    x = x || {};
-    return { cash: +x.cash > 0 ? Math.round(+x.cash) : 0, debit: +x.debit > 0 ? Math.round(+x.debit) : 0 };
-  }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
     });
+  }
+  function uid() { return 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function cleanName(s) { return String(s == null ? '' : s).trim().slice(0, 12); }
+
+  /* ---------- 設定資料的讀取與整理 ---------- */
+  function readNames(x) {
+    x = x || {};
+    function list(a, def) {
+      if (!Array.isArray(a)) return def.slice();
+      var out = [];
+      a.forEach(function (s) {
+        s = cleanName(s);
+        if (s && out.indexOf(s) < 0) out.push(s);
+      });
+      return out.length ? out : def.slice();
+    }
+    return { expense: list(x.expense, DEFAULT_EXPENSE), income: list(x.income, DEFAULT_INCOME) };
+  }
+
+  /* 帳戶清單；舊版只有「現金」「金融卡」兩個固定帳戶，會自動轉成清單 */
+  function readAccounts(arr, legacyOpening, legacyNames) {
+    var out = [];
+    if (Array.isArray(arr)) {
+      arr.forEach(function (a) {
+        if (!a || typeof a !== 'object') return;
+        var id = String(a.id == null ? '' : a.id).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 24);
+        var name = cleanName(a.name);
+        if (!id || !name) return;
+        if (out.some(function (o) { return o.id === id; })) return;
+        out.push({ id: id, name: name, opening: isFinite(+a.opening) ? Math.round(+a.opening) : 0 });
+      });
+    }
+    if (!out.length) {
+      var lo = legacyOpening || {}, ln = legacyNames || {};
+      var n1 = cleanName(ln.cash) || '現金', n2 = cleanName(ln.debit) || '金融卡';
+      if (n1 === n2) { n1 = '現金'; n2 = '金融卡'; }
+      out = [
+        { id: 'cash', name: n1, opening: +lo.cash > 0 ? Math.round(+lo.cash) : 0 },
+        { id: 'debit', name: n2, opening: +lo.debit > 0 ? Math.round(+lo.debit) : 0 }
+      ];
+    }
+    return out;
   }
 
   var T0 = todayParts();
@@ -399,12 +470,13 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     mode: 'loading',          // loading | cloud | local
     txs: [],
     budget: 0,
-    opening: { cash: 0, debit: 0 },
-    editingOpening: false,
+    accounts: readAccounts(null),
+    names: readNames(null),
     view: { y: T0.y, m: T0.m },
     filter: 'all',
     type: 'expense',
     lastCat: { expense: '餐飲', income: '薪資' },
+    lastMethod: 'cash',
     confirmId: null,
     confirmBulk: null,
     editingBudget: false,
@@ -418,6 +490,14 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   var bulkTimer = null;
   var toastTimer = null;
 
+  function accName(id) {
+    for (var i = 0; i < state.accounts.length; i++) if (state.accounts[i].id === id) return state.accounts[i].name;
+    return '';
+  }
+  function isValid(t) {
+    return t && typeof t.date === 'string' && (t.type === 'expense' || t.type === 'income') && isFinite(t.amount);
+  }
+
   /* ---------- 儲存層 ---------- */
   function loadLocal() {
     try {
@@ -426,14 +506,15 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
         var o = JSON.parse(raw);
         state.txs = Array.isArray(o.txs) ? o.txs : [];
         state.budget = +o.budget > 0 ? +o.budget : 0;
-        state.opening = readOpening(o.opening);
+        state.accounts = readAccounts(o.accounts, o.opening, o.names);
+        state.names = readNames(o.names);
       }
     } catch (e) { /* 讀不到就從空帳本開始 */ }
     state.loaded = true;
   }
   function saveLocal() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ txs: state.txs, budget: state.budget, opening: state.opening }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ txs: state.txs, budget: state.budget, accounts: state.accounts, names: state.names }));
       state.persistFail = false;
     } catch (e) {
       state.persistFail = true;
@@ -457,7 +538,7 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   }
   function saveQueue() { try { localStorage.setItem(qKey(), JSON.stringify(queue)); } catch (e) {} }
   function saveCache() {
-    try { localStorage.setItem(cKey(), JSON.stringify({ txs: state.txs, budget: state.budget, opening: state.opening })); } catch (e) {}
+    try { localStorage.setItem(cKey(), JSON.stringify({ txs: state.txs, budget: state.budget, accounts: state.accounts, names: state.names })); } catch (e) {}
   }
   function loadCache() {
     try { var c = JSON.parse(localStorage.getItem(cKey()) || 'null'); return c && Array.isArray(c.txs) ? c : null; } catch (e) { return null; }
@@ -509,6 +590,21 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   }
   function enqueue(a, p) { queue.push({ a: a, p: p }); saveQueue(); saveCache(); flush(); }
 
+  /* 帳戶與類別設定：試算表後端若沒有存這些欄位，就留一份在這個瀏覽器（依帳號分開） */
+  function cfgKey() { return 'ledger.cfg.' + (session ? session.user : ''); }
+  function saveCfg() {
+    try { localStorage.setItem(cfgKey(), JSON.stringify({ accounts: state.accounts, names: state.names })); } catch (e) {}
+  }
+  function loadCfg() {
+    try { return JSON.parse(localStorage.getItem(cfgKey()) || 'null'); } catch (e) { return null; }
+  }
+  function settingsPayload() {
+    var op = { cash: 0, debit: 0 };
+    state.accounts.forEach(function (a) { if (a.id === 'cash') op.cash = Math.max(0, a.opening); if (a.id === 'debit') op.debit = Math.max(0, a.opening); });
+    return { budget: state.budget, opening: op, accounts: state.accounts, names: state.names };
+  }
+
+
   async function addTx(data) {
     data.createdAt = Date.now();
     if (cloud) {
@@ -541,19 +637,21 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     }
   }
   async function saveSettings(patch) {
-    var next = { budget: state.budget, opening: state.opening };
+    var next = { budget: state.budget, accounts: state.accounts, names: state.names };
     if (patch.budget != null) next.budget = patch.budget;
-    if (patch.opening) next.opening = patch.opening;
+    if (patch.accounts) next.accounts = patch.accounts;
+    if (patch.names) next.names = patch.names;
     if (cloud) {
       await cloud.metaDoc.set(next);
     } else {
       state.budget = next.budget;
-      state.opening = next.opening;
-      if (state.mode === 'sheet') enqueue('settings', { budget: next.budget, opening: next.opening }); else saveLocal();
+      state.accounts = next.accounts;
+      state.names = next.names;
+      if (state.mode === 'sheet') { saveCfg(); enqueue('settings', settingsPayload()); } else saveLocal();
+      renderOptions();
       render();
     }
   }
-
   /* ---------- 登入 / 註冊畫面 ---------- */
   function showAuth(msg) {
     var old = $('auth-ov');
@@ -638,8 +736,9 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   }
 
   function resetState() {
-    state.txs = []; state.budget = 0; state.opening = { cash: 0, debit: 0 };
+    state.txs = []; state.budget = 0; state.accounts = readAccounts(null); state.names = readNames(null);
     state.loaded = false; state.error = ''; state.confirmId = null; state.confirmBulk = null;
+    renderOptions();
   }
   function sessionExpired(msg) {
     try { localStorage.removeItem(SES_KEY); } catch (e) {}
@@ -674,14 +773,20 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
       }
       state.txs = Array.isArray(r.txs) ? r.txs : [];
       state.budget = +r.budget > 0 ? +r.budget : 0;
-      state.opening = readOpening(r.opening);
+      var cfg = loadCfg();
+      if (Array.isArray(r.accounts)) state.accounts = readAccounts(r.accounts, r.opening, r.names);
+      else if (cfg && Array.isArray(cfg.accounts)) state.accounts = readAccounts(cfg.accounts);
+      else state.accounts = readAccounts(null, r.opening);
+      if (r.names && typeof r.names === 'object') state.names = readNames(r.names);
+      else state.names = readNames(cfg && cfg.names);
       state.loaded = true; state.error = '';
-      saveCache(); render(); setSync('已同步');
+      saveCache(); saveCfg(); renderOptions(); render(); setSync('已同步');
       maybeMigrate();
     } catch (err) {
       var c = loadCache();
       if (c) {
-        state.txs = c.txs; state.budget = +c.budget > 0 ? +c.budget : 0; state.opening = readOpening(c.opening);
+        state.txs = c.txs; state.budget = +c.budget > 0 ? +c.budget : 0; state.accounts = readAccounts(c.accounts, c.opening, c.names); state.names = readNames(c.names);
+        renderOptions();
         state.loaded = true; state.error = '';
         render(); setSync('離線中，顯示上次的資料');
         setTimeout(flush, 8000);
@@ -706,10 +811,12 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
       if (!confirm('這個瀏覽器裡有 ' + old.length + ' 筆以前記的帳目，要搬進你的帳號嗎？（只會問這一次）')) return;
       state.txs = old.slice();
       for (var i = 0; i < old.length; i += 100) queue.push({ a: 'add', p: { txs: old.slice(i, i + 100) } });
-      var ob = readOpening(o.opening), bg = +o.budget > 0 ? +o.budget : 0;
-      if (bg > 0 || ob.cash > 0 || ob.debit > 0) {
-        state.budget = bg; state.opening = ob;
-        queue.push({ a: 'settings', p: { budget: bg, opening: ob } });
+      var bg = +o.budget > 0 ? +o.budget : 0;
+      var accs = readAccounts(o.accounts, o.opening, o.names);
+      if (bg > 0 || Array.isArray(o.accounts) || accs.some(function (a) { return a.opening !== 0; })) {
+        state.budget = bg; state.accounts = accs; state.names = readNames(o.names);
+        renderOptions(); saveCfg();
+        queue.push({ a: 'settings', p: settingsPayload() });
       }
       saveQueue(); saveCache(); render(); flush();
     } catch (e) { /* 搬不了就算了 */ }
@@ -722,6 +829,34 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   }
 
   function saveBudget(n) { return saveSettings({ budget: n }); }
+  /* map: { 'expense|舊名稱': '新名稱' }，同步把已記錄帳目的類別改成新名稱 */
+  async function saveConfig(cfg, map) {
+    var affected = state.txs.filter(function (t) { return map[t.type + '|' + t.category]; });
+    if (cloud) {
+      await saveSettings(cfg);
+      for (var i = 0; i < affected.length; i++) {
+        await cloud.txCol.doc(affected[i].id).update({ category: map[affected[i].type + '|' + affected[i].category] });
+      }
+    } else if (state.mode === 'sheet') {
+      /* 試算表只有新增與刪除：改名的帳目先刪掉舊的，再用新類別名稱重新寫入 */
+      var ids = affected.map(function (t) { return t.id; });
+      var idSet = {};
+      ids.forEach(function (id) { idSet[id] = true; });
+      var renamed = affected.map(function (t) {
+        return Object.assign({}, t, { id: newId(), category: map[t.type + '|' + t.category] });
+      });
+      state.txs = state.txs.filter(function (t) { return !idSet[t.id]; }).concat(renamed);
+      for (var a = 0; a < ids.length; a += 500) enqueue('del', { ids: ids.slice(a, a + 500) });
+      for (var b = 0; b < renamed.length; b += 100) enqueue('add', { txs: renamed.slice(b, b + 100) });
+      await saveSettings(cfg);
+    } else {
+      state.txs = state.txs.map(function (t) {
+        var to = map[t.type + '|' + t.category];
+        return to ? Object.assign({}, t, { category: to }) : t;
+      });
+      await saveSettings(cfg);
+    }
+  }
 
   async function boot() {
     render();
@@ -733,10 +868,10 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
         var res = await Promise.all([c.use('db'), c.use('user')]);
         var db = res[0], user = res[1];
         if (db && user) {
-          var uid = await user.id();
+          var uid0 = await user.id();
           var canWrite = await user.can('data.write');
-          if (uid && canWrite !== false) {
-            var base = db.doc('data/users/' + uid + '/ledger');
+          if (uid0 && canWrite !== false) {
+            var base = db.doc('data/users/' + uid0 + '/ledger');
             cloud = { txCol: base.collection('tx'), metaDoc: base };
             mode = 'cloud';
           }
@@ -749,6 +884,7 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
       setTimeout(function () { if (!state.loaded) { state.loaded = true; render(); } }, 6000);
     } else {
       loadLocal();
+      renderOptions();
       render();
     }
   }
@@ -768,18 +904,29 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     cloud.metaDoc.onSnapshot(function (s) {
       var d = s.data();
       state.budget = d && +d.budget > 0 ? +d.budget : 0;
-      state.opening = readOpening(d && d.opening);
+      state.accounts = readAccounts(d && d.accounts, d && d.opening, d && d.names);
+      state.names = readNames(d && d.names);
+      renderOptions();
       render();
-    }, function () { /* 預算讀不到時維持原狀 */ });
+    }, function () { /* 設定讀不到時維持原狀 */ });
   }
 
   /* ---------- 計算 ---------- */
   function monthList() {
     var pre = state.view.y + '-' + pad(state.view.m) + '-';
-    return state.txs.filter(function (t) {
-      return t && typeof t.date === 'string' && t.date.indexOf(pre) === 0 &&
-        (t.type === 'expense' || t.type === 'income') && isFinite(t.amount);
+    return state.txs.filter(function (t) { return isValid(t) && t.date.indexOf(pre) === 0; });
+  }
+  /* 依帳戶統計收入與支出；不屬於任何現有帳戶的帳目歸到 none */
+  function tally(list) {
+    var by = Object.create(null);
+    state.accounts.forEach(function (a) { by[a.id] = { inc: 0, exp: 0, n: 0 }; });
+    var none = { inc: 0, exp: 0, n: 0 };
+    list.forEach(function (t) {
+      var b = (t.method && by[t.method]) ? by[t.method] : none;
+      b.n++;
+      if (t.type === 'expense') b.exp += t.amount; else b.inc += t.amount;
     });
+    return { by: by, none: none };
   }
   function niceMax(v) {
     if (v <= 0) return 100;
@@ -789,6 +936,7 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     return 10 * p;
   }
   function axisFmt(n) { return 'NT$' + n.toLocaleString('zh-TW', { maximumFractionDigits: 1 }); }
+  function sgn(n) { return n === 0 ? '' : (n > 0 ? '+' : '−'); }
 
   /* ---------- 繪製 ---------- */
   function render() {
@@ -832,7 +980,7 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
       $('sum-income').textContent = money(inc);
       $('sum-income').className = inc > 0 ? 'pos' : '';
       var bal = inc - exp;
-      $('sum-balance').textContent = (bal === 0 ? '' : (bal > 0 ? '+' : '−')) + money(Math.abs(bal));
+      $('sum-balance').textContent = sgn(bal) + money(Math.abs(bal));
       $('sum-balance').className = bal < 0 ? 'neg-bal' : (bal > 0 ? 'pos' : '');
       $('sum-avg').textContent = elapsed > 0 && exp > 0 ? money(exp / elapsed) : '—';
     }
@@ -863,52 +1011,44 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
       '<button type="button" class="link" id="budget-open">調整預算</button></div>';
   }
 
+  /* 目前餘額：各帳戶 = 起始金額 + 所有月份的收入 − 支出 */
   function renderAssets() {
     var tEl = $('assets-total'), rEl = $('assets-rows');
-    $('open-form').hidden = !state.editingOpening;
-    $('open-edit').hidden = state.editingOpening;
-    rEl.hidden = state.editingOpening;
     if (!state.loaded) { tEl.className = 'big'; tEl.innerHTML = '<small>NT$</small>—'; rEl.innerHTML = ''; return; }
-    var acc = { cash: { inc: 0, exp: 0, n: 0 }, debit: { inc: 0, exp: 0, n: 0 }, none: { inc: 0, exp: 0, n: 0 } };
-    state.txs.forEach(function (t) {
-      if (!t || (t.type !== 'expense' && t.type !== 'income') || !isFinite(t.amount)) return;
-      var k = (t.method === 'cash' || t.method === 'debit') ? t.method : 'none';
-      acc[k].n++;
-      if (t.type === 'expense') acc[k].exp += t.amount; else acc[k].inc += t.amount;
+    var t = tally(state.txs.filter(isValid));
+    var rows = [], total = 0;
+    state.accounts.forEach(function (a) {
+      var b = t.by[a.id];
+      var bal = a.opening + b.inc - b.exp;
+      total += bal;
+      rows.push([a.name, bal]);
     });
-    var bal = {
-      cash: state.opening.cash + acc.cash.inc - acc.cash.exp,
-      debit: state.opening.debit + acc.debit.inc - acc.debit.exp,
-      none: acc.none.inc - acc.none.exp
-    };
-    var total = bal.cash + bal.debit + (acc.none.n ? bal.none : 0);
+    if (t.none.n) {
+      var nb = t.none.inc - t.none.exp;
+      total += nb;
+      rows.push(['未指定帳戶', nb]);
+    }
     tEl.className = 'big' + (total < 0 ? ' neg-bal' : '');
     tEl.innerHTML = bigMoney(total);
-    var rows = [['現金', bal.cash], ['金融卡', bal.debit]];
-    if (acc.none.n) rows.push(['未指定帳戶', bal.none]);
     rEl.innerHTML = rows.map(function (r) {
-      return '<div class="arow"><span>' + r[0] + '</span><span class="aval' + (r[1] < 0 ? ' neg-bal' : '') + '">' + (r[1] < 0 ? '−' : '') + money(Math.abs(r[1])) + '</span></div>';
+      return '<div class="arow"><span>' + esc(r[0]) + '</span><span class="aval' + (r[1] < 0 ? ' neg-bal' : '') + '">' + (r[1] < 0 ? '−' : '') + money(Math.abs(r[1])) + '</span></div>';
     }).join('');
   }
 
+  /* 本月各帳戶收支 */
   function renderAccounts(md) {
     var el = $('accounts');
     if (!state.loaded) { el.innerHTML = '<p class="empty">正在讀取帳本…</p>'; return; }
-    var acc = { cash: { inc: 0, exp: 0, n: 0 }, debit: { inc: 0, exp: 0, n: 0 }, none: { inc: 0, exp: 0, n: 0 } };
-    md.forEach(function (t) {
-      var k = (t.method === 'cash' || t.method === 'debit') ? t.method : 'none';
-      acc[k].n++;
-      if (t.type === 'expense') acc[k].exp += t.amount; else acc[k].inc += t.amount;
-    });
-    var keys = ['cash', 'debit'];
-    if (acc.none.n) keys.push('none');
-    el.innerHTML = '<div class="acct-list">' + keys.map(function (k) {
-      var a = acc[k], bal = a.inc - a.exp;
-      return '<div class="acct"><div class="acct-name">' + (k === 'none' ? '未指定' : mname(k)) + '</div>' +
+    var t = tally(md);
+    var items = state.accounts.map(function (a) { return [a.name, t.by[a.id]]; });
+    if (t.none.n) items.push(['未指定帳戶', t.none]);
+    el.innerHTML = '<div class="acct-list">' + items.map(function (it) {
+      var a = it[1], bal = a.inc - a.exp;
+      return '<div class="acct"><div class="acct-name">' + esc(it[0]) + '</div>' +
         '<dl class="acct-stats">' +
         '<div><dt>收入</dt><dd class="' + (a.inc > 0 ? 'pos' : '') + '">' + money(a.inc) + '</dd></div>' +
         '<div><dt>支出</dt><dd>' + money(a.exp) + '</dd></div>' +
-        '<div><dt>結餘</dt><dd class="' + (bal < 0 ? 'neg-bal' : (bal > 0 ? 'pos' : '')) + '">' + (bal === 0 ? '' : (bal > 0 ? '+' : '−')) + money(Math.abs(bal)) + '</dd></div>' +
+        '<div><dt>結餘</dt><dd class="' + (bal < 0 ? 'neg-bal' : (bal > 0 ? 'pos' : '')) + '">' + sgn(bal) + money(Math.abs(bal)) + '</dd></div>' +
         '</dl></div>';
     }).join('') + '</div>';
   }
@@ -1037,8 +1177,9 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
             var inc = t.type === 'income';
             var conf = state.confirmId === t.id;
             var label = esc(t.category) + ' ' + money(t.amount);
+            var an = accName(t.method);
             return '<li class="tx"><div class="tx-main"><span class="tag' + (inc ? ' inc' : '') + '">' + esc(t.category) + '</span>' +
-              (mname(t.method) ? '<span class="tag m">' + mname(t.method) + '</span>' : '') +
+              (an ? '<span class="tag m">' + esc(an) + '</span>' : '') +
               (t.sample ? '<span class="tag sample">範例</span>' : '') +
               (t.note ? '<span class="tx-note">' + esc(t.note) + '</span>' : '') + '</div>' +
               '<div class="tx-amt' + (inc ? ' inc' : '') + '">' + (inc ? '+' : '−') + money(t.amount) + '</div>' +
@@ -1077,14 +1218,26 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     b.textContent = state.loaded ? '記一筆' : '載入中…';
   }
 
+  /* 表單裡的類別與帳戶選項，會跟著設定即時更新 */
   function renderChips() {
-    var cats = state.type === 'expense' ? EXPENSE_CATS : INCOME_CATS;
+    var cats = state.names[state.type];
     var sel = state.lastCat[state.type];
+    if (cats.indexOf(sel) < 0) { sel = cats[0]; state.lastCat[state.type] = sel; }
     $('cat-chips').innerHTML = cats.map(function (c, i) {
       var id = 'cat-' + state.type + '-' + i;
       return '<input type="radio" name="cat" id="' + id + '" value="' + esc(c) + '"' + (c === sel ? ' checked' : '') + '><label for="' + id + '">' + esc(c) + '</label>';
     }).join('');
   }
+  function renderMethods() {
+    var accs = state.accounts;
+    var sel = state.lastMethod;
+    if (!accs.some(function (a) { return a.id === sel; })) { sel = accs[0].id; state.lastMethod = sel; }
+    $('method-chips').innerHTML = accs.map(function (a, i) {
+      var id = 'method-' + i;
+      return '<input type="radio" name="method" id="' + id + '" value="' + esc(a.id) + '"' + (a.id === sel ? ' checked' : '') + '><label for="' + id + '">' + esc(a.name) + '</label>';
+    }).join('');
+  }
+  function renderOptions() { renderChips(); renderMethods(); }
 
   /* ---------- 互動 ---------- */
   function toast(msg, bad) {
@@ -1126,6 +1279,9 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   $('cat-chips').addEventListener('change', function (e) {
     if (e.target && e.target.name === 'cat') state.lastCat[state.type] = e.target.value;
   });
+  $('method-chips').addEventListener('change', function (e) {
+    if (e.target && e.target.name === 'method') state.lastMethod = e.target.value;
+  });
   $('amount').addEventListener('input', hideErr);
 
   $('entry-form').addEventListener('submit', async function (e) {
@@ -1135,9 +1291,9 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     var date = $('date').value;
     var note = $('note').value.trim();
     var catEl = document.querySelector('input[name="cat"]:checked');
-    var cat = catEl ? catEl.value : '其他';
+    var cat = catEl ? catEl.value : state.names[state.type][0];
     var mEl = document.querySelector('input[name="method"]:checked');
-    var method = mEl ? mEl.value : 'cash';
+    var method = mEl ? mEl.value : state.accounts[0].id;
     if (!(amt > 0)) { showErr('請輸入大於 0 的金額。'); $('amount').focus(); return; }
     if (amt > 999999999) { showErr('金額太大了，請確認一下位數。'); $('amount').focus(); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showErr('請選擇日期。'); $('date').focus(); return; }
@@ -1146,7 +1302,7 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     btn.disabled = true;
     try {
       await addTx({ type: state.type, amount: amt, category: cat, method: method, note: note, date: date });
-      toast('已記錄 ' + mname(method) + '・' + cat + ' ' + money(amt));
+      toast('已記錄 ' + accName(method) + '・' + cat + ' ' + money(amt));
       if (window.__roast) { try { window.__roast({ type: state.type, amount: amt, category: cat }); } catch (e3) {} }
       $('amount').value = '';
       $('note').value = '';
@@ -1188,30 +1344,153 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
     }
   });
 
-  /* 起始金額 */
-  $('open-edit').addEventListener('click', function () {
-    state.editingOpening = true;
-    $('open-cash').value = state.opening.cash > 0 ? state.opening.cash : '';
-    $('open-debit').value = state.opening.debit > 0 ? state.opening.debit : '';
-    renderAssets();
-    $('open-cash').focus();
+  /* ---------- 類別與帳戶管理 ---------- */
+  var nmSeq = 0;
+  function nmRow(type, name, orig) {
+    var row = document.createElement('div');
+    row.className = 'nm-row';
+    row.setAttribute('data-orig', orig || '');
+    var inp = document.createElement('input');
+    inp.type = 'text';
+    inp.maxLength = 12;
+    inp.id = 'nm-' + type + '-' + (nmSeq++);
+    inp.value = name;
+    inp.setAttribute('aria-label', (type === 'expense' ? '支出' : '收入') + '類別名稱');
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'nm-del';
+    del.textContent = '移除';
+    del.setAttribute('aria-label', '移除這個類別');
+    row.appendChild(inp);
+    row.appendChild(del);
+    return row;
+  }
+  function acctRow(a) {
+    var row = document.createElement('div');
+    row.className = 'nm-row acct-row';
+    row.setAttribute('data-id', a.id);
+    var n = document.createElement('input');
+    n.type = 'text';
+    n.maxLength = 12;
+    n.id = 'nm-acc-name-' + (nmSeq++);
+    n.value = a.name;
+    n.placeholder = '例如：悠遊卡';
+    n.setAttribute('aria-label', '帳戶名稱');
+    var o = document.createElement('input');
+    o.type = 'number';
+    o.step = '1';
+    o.inputMode = 'numeric';
+    o.id = 'nm-acc-open-' + (nmSeq++);
+    o.value = a.opening ? a.opening : '';
+    o.placeholder = '0';
+    o.setAttribute('aria-label', '起始金額');
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'nm-del';
+    del.textContent = '移除';
+    del.setAttribute('aria-label', '移除這個帳戶');
+    row.appendChild(n);
+    row.appendChild(o);
+    row.appendChild(del);
+    return row;
+  }
+  function fillCats(names, origs) {
+    ['expense', 'income'].forEach(function (type) {
+      var box = $('nm-' + type);
+      box.innerHTML = '';
+      names[type].forEach(function (n, i) {
+        box.appendChild(nmRow(type, n, origs ? (origs[type][i] || '') : n));
+      });
+    });
+  }
+  function fillAccounts(list) {
+    var box = $('nm-accounts');
+    box.innerHTML = '';
+    list.forEach(function (a) { box.appendChild(acctRow(a)); });
+  }
+  function showNamesErr(msg) { var e = $('names-err'); e.textContent = msg; e.hidden = false; }
+  function openNames(focusAccounts) {
+    fillAccounts(state.accounts);
+    fillCats(state.names, null);
+    $('names-err').hidden = true;
+    $('names-card').hidden = false;
+    var first = $('nm-accounts').querySelector('input');
+    if (first) first.focus();
+    $('names-card').scrollIntoView({ block: 'nearest' });
+  }
+  function closeNames() { $('names-card').hidden = true; $('names-open').focus(); }
+  $('names-open').addEventListener('click', function () { if ($('names-card').hidden) openNames(); else closeNames(); });
+  $('open-edit').addEventListener('click', function () { openNames(true); });
+  $('names-cancel').addEventListener('click', closeNames);
+  $('names-reset').addEventListener('click', function () {
+    fillCats({ expense: DEFAULT_EXPENSE, income: DEFAULT_INCOME }, state.names);
   });
-  $('open-cancel').addEventListener('click', function () {
-    state.editingOpening = false;
-    renderAssets();
+  $('nm-accounts-add').addEventListener('click', function () {
+    var row = acctRow({ id: uid(), name: '', opening: 0 });
+    $('nm-accounts').appendChild(row);
+    row.querySelector('input').focus();
   });
-  $('open-form').addEventListener('submit', async function (e) {
+  ['expense', 'income'].forEach(function (type) {
+    $('nm-' + type + '-add').addEventListener('click', function () {
+      var row = nmRow(type, '', '');
+      $('nm-' + type).appendChild(row);
+      row.querySelector('input').focus();
+    });
+  });
+  $('names-form').addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('.nm-del') : null;
+    if (!b) return;
+    var row = b.closest('.nm-row');
+    var isAcct = row.classList.contains('acct-row');
+    if (row.parentNode.querySelectorAll('.nm-row').length <= 1) {
+      toast(isAcct ? '至少要保留一個帳戶。' : '至少要保留一個類別。', true);
+      return;
+    }
+    if (isAcct) {
+      var id = row.getAttribute('data-id');
+      var cnt = state.txs.filter(function (t) { return t.method === id; }).length;
+      if (cnt > 0) toast('這個帳戶有 ' + cnt + ' 筆帳目，儲存後會變成「未指定帳戶」。');
+    }
+    row.parentNode.removeChild(row);
+  });
+  $('names-form').addEventListener('submit', async function (e) {
     e.preventDefault();
-    var c = Math.round(Number($('open-cash').value || 0));
-    var d = Math.round(Number($('open-debit').value || 0));
-    if (!(c >= 0) || !(d >= 0)) { toast('起始金額請輸入 0 以上的數字。', true); return; }
+    var err = '';
+    var accounts = [];
+    var aRows = $('nm-accounts').querySelectorAll('.acct-row');
+    for (var i = 0; i < aRows.length && !err; i++) {
+      var name = cleanName(aRows[i].children[0].value);
+      var rawOpen = aRows[i].children[1].value;
+      var open = rawOpen === '' ? 0 : Number(rawOpen);
+      if (!name) { err = '帳戶名稱不能空白，不需要的請按「移除」。'; break; }
+      if (accounts.some(function (a) { return a.name === name; })) { err = '帳戶名稱「' + name + '」重複了。'; break; }
+      if (!isFinite(open)) { err = '「' + name + '」的起始金額請輸入數字。'; break; }
+      accounts.push({ id: aRows[i].getAttribute('data-id') || uid(), name: name, opening: Math.round(open) });
+    }
+    var lists = {}, map = {};
+    ['expense', 'income'].forEach(function (type) {
+      if (err) return;
+      var rows = $('nm-' + type).querySelectorAll('.nm-row');
+      var names = [];
+      for (var k = 0; k < rows.length; k++) {
+        var v = cleanName(rows[k].querySelector('input').value);
+        var orig = rows[k].getAttribute('data-orig');
+        if (!v) { err = (type === 'expense' ? '支出' : '收入') + '類別的名稱不能空白，不需要的請按「移除」。'; return; }
+        if (names.indexOf(v) >= 0) { err = '「' + v + '」重複了，同一種類別的名稱不能相同。'; return; }
+        names.push(v);
+        if (orig && orig !== v) map[type + '|' + orig] = v;
+      }
+      lists[type] = names;
+    });
+    if (err) { showNamesErr(err); return; }
+    $('names-err').hidden = true;
     try {
-      await saveSettings({ opening: { cash: c, debit: d } });
-      state.editingOpening = false;
+      await saveConfig({ accounts: accounts, names: { expense: lists.expense, income: lists.income } }, map);
+      $('names-card').hidden = true;
       render();
-      toast('已更新起始金額');
-    } catch (err) {
-      toast('儲存失敗，請稍後再試。', true);
+      toast('已儲存類別與帳戶設定');
+    } catch (e2) {
+      showNamesErr('儲存失敗，請稍後再試。');
     }
   });
 
@@ -1279,19 +1558,21 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
   async function loadSample(btn) {
     btn.disabled = true;
     var D = function (d) { return dstr(T0.y, T0.m, Math.max(1, Math.min(d, T0.d))); };
+    var first = state.accounts[0].id;
+    var second = (state.accounts[1] || state.accounts[0]).id;
     var rows = [
-      [1, 'income', '薪資', 42000, '本月薪資', 'debit'],
-      [1, 'expense', '居家水電', 12500, '房租', 'debit'],
-      [2, 'expense', '餐飲', 95, '早餐 蛋餅豆漿', 'cash'],
-      [3, 'expense', '交通', 500, '悠遊卡加值', 'cash'],
-      [4, 'expense', '餐飲', 180, '午餐 滷肉飯', 'cash'],
-      [6, 'expense', '購物', 1290, '球鞋', 'debit'],
-      [8, 'expense', '娛樂', 320, '電影', 'debit'],
-      [9, 'expense', '餐飲', 560, '朋友聚餐', 'cash'],
-      [12, 'expense', '居家水電', 1480, '電費', 'debit'],
-      [15, 'income', '兼職', 3000, '接案', 'debit'],
-      [18, 'expense', '醫療', 250, '掛號費', 'cash'],
-      [21, 'expense', '學習', 680, '線上課程', 'debit']
+      [1, 'income', '薪資', 42000, '本月薪資', second],
+      [1, 'expense', '居家水電', 12500, '房租', second],
+      [2, 'expense', '餐飲', 95, '早餐 蛋餅豆漿', first],
+      [3, 'expense', '交通', 500, '悠遊卡加值', first],
+      [4, 'expense', '餐飲', 180, '午餐 滷肉飯', first],
+      [6, 'expense', '購物', 1290, '球鞋', second],
+      [8, 'expense', '娛樂', 320, '電影', second],
+      [9, 'expense', '餐飲', 560, '朋友聚餐', first],
+      [12, 'expense', '居家水電', 1480, '電費', second],
+      [15, 'income', '兼職', 3000, '接案', second],
+      [18, 'expense', '醫療', 250, '掛號費', first],
+      [21, 'expense', '學習', 680, '線上課程', second]
     ];
     try {
       for (var i = 0; i < rows.length; i++) {
@@ -1364,7 +1645,7 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
     var lines = [['日期', '類型', '類別', '帳戶', '金額', '備註']].concat(rows.map(function (t) {
-      return [t.date, t.type === 'income' ? '收入' : '支出', t.category, mname(t.method), t.amount, t.note || ''];
+      return [t.date, t.type === 'income' ? '收入' : '支出', t.category, accName(t.method) || '未指定', t.amount, t.note || ''];
     })).map(function (r) { return r.map(csvCell).join(','); });
     var csv = '﻿' + lines.join('\r\n');
     try {
@@ -1390,9 +1671,10 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
 
   /* 初始化 */
   $('date').value = dstr(T0.y, T0.m, T0.d);
-  renderChips();
+  renderOptions();
   boot();
 })();
+
 </script>
 
 
@@ -1612,5 +1894,6 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2au
 })();
 </script>
 <!-- ===== 嘲諷彈窗（結束） ===== -->
+
 
 </body></html>
