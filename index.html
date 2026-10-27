@@ -7,58 +7,23 @@
 <style>
 /* 版面：手機單欄；寬度 900px 以上時，左側固定記帳表單，右側為類別統計、每日長條圖與明細。 */
 :root {
-  --bg: #EDF0F4;
-  --surface: #FAFBFC;
-  --surface-2: #F1F3F8;
-  --fg: #18202C;
-  --muted: #586577;
-  --line: #D3D9E2;
-  --line-soft: #E3E7EE;
-  --grid: rgba(39, 70, 138, 0.06);
-  --accent: #27468A;
-  --accent-ink: #FFFFFF;
-  --accent-soft: #DCE4F5;
-  --income: #0C7A66;
-  --warn: #B3411F;
-  --warn-soft: #F6DDD3;
+  --bg: #07090C;
+  --surface: #12161C;
+  --surface-2: #191E26;
+  --fg: #E8EDF3;
+  --muted: #98A4B4;
+  --line: #2A313C;
+  --line-soft: #1F2630;
+  --grid: rgba(140, 171, 238, 0.06);
+  --accent: #8CABEE;
+  --accent-ink: #0B1630;
+  --accent-soft: #1E2B4A;
+  --income: #4DC4AB;
+  --warn: #F2906F;
+  --warn-soft: #3A2119;
   --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
   --font-display: "Noto Serif TC", "Songti TC", "PMingLiU", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #10151D;
-    --surface: #171E29;
-    --surface-2: #1D2633;
-    --fg: #E6EBF2;
-    --muted: #9AA7B8;
-    --line: #2D3847;
-    --line-soft: #232C39;
-    --grid: rgba(140, 171, 238, 0.07);
-    --accent: #8CABEE;
-    --accent-ink: #0E1A33;
-    --accent-soft: #22304F;
-    --income: #4DC4AB;
-    --warn: #F2906F;
-    --warn-soft: #3B2219;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #10151D;
-  --surface: #171E29;
-  --surface-2: #1D2633;
-  --fg: #E6EBF2;
-  --muted: #9AA7B8;
-  --line: #2D3847;
-  --line-soft: #232C39;
-  --grid: rgba(140, 171, 238, 0.07);
-  --accent: #8CABEE;
-  --accent-ink: #0E1A33;
-  --accent-soft: #22304F;
-  --income: #4DC4AB;
-  --warn: #F2906F;
-  --warn-soft: #3B2219;
   color-scheme: dark;
 }
 
@@ -165,6 +130,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .seg label { text-align: center; padding: 8px 16px; border-radius: 7px; cursor: pointer; font-weight: 500; white-space: nowrap; }
 .seg input:checked + label { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
 .seg input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+.seg.alt input:checked + label { background: var(--surface); color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .seg.sm label { padding: 5px 12px; font-size: 13px; }
 .seg.sm input:checked + label { background: var(--surface); color: var(--accent); box-shadow: 0 0 0 1px var(--line); }
 
@@ -174,6 +140,16 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .chips label:hover { background: var(--surface-2); }
 .chips input:checked + label { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
 .chips input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* 帳戶收支 */
+.acct-list { display: grid; gap: 14px; }
+.acct + .acct { border-top: 1px solid var(--line-soft); padding-top: 14px; }
+.acct-name { font-weight: 700; margin-bottom: 6px; }
+.acct-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.acct-stats div { min-width: 0; }
+.acct-stats dt { font-size: 12px; color: var(--muted); }
+.acct-stats dd { font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tag.m { color: var(--fg); }
 
 /* 類別長條 */
 .bd { display: grid; gap: 14px; }
@@ -217,17 +193,19 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .tag.sample { border-style: dashed; }
 .tx-amt { font-family: var(--font-mono); font-weight: 500; font-size: 15px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 .tx-amt.inc { color: var(--income); }
-.del { background: none; border: 0; border-radius: 6px; padding: 8px 6px; min-width: 3.4em; font-size: 13px; color: var(--muted); cursor: pointer; }
-.del:hover { color: var(--warn); }
-.del.is-confirm { color: var(--warn); background: var(--warn-soft); font-weight: 700; padding: 8px 10px; }
+.del { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; min-width: 3.6em; font-size: 13px; color: var(--fg); cursor: pointer; }
+.del:hover { color: var(--warn); border-color: var(--warn); }
+.del.is-confirm { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); font-weight: 700; }
 .list-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 16px; font-size: 13px; color: var(--muted); }
+.foot-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ghost.is-confirm { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); font-weight: 700; }
 .empty { color: var(--muted); padding: 18px 4px; text-align: center; }
 .empty .ghost { margin-top: 12px; }
 .note { margin-top: 20px; font-size: 12.5px; color: var(--muted); max-width: 60ch; }
 
 .toast { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 12px); max-width: calc(100% - 32px); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; opacity: 0; visibility: hidden; transition: opacity 0.18s, transform 0.18s, visibility 0.18s; z-index: 20; }
 .toast.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
-.toast.bad { background: var(--warn); color: #fff; }
+.toast.bad { background: var(--warn); color: var(--bg); }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
 </style>
 
@@ -279,6 +257,15 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
             <div class="money"><span class="cur">NT$</span><input id="amount" name="amount" type="number" inputmode="numeric" min="1" step="1" placeholder="0" autocomplete="off"></div>
           </label>
           <fieldset>
+            <legend>帳戶</legend>
+            <div class="seg alt full" role="radiogroup" aria-label="帳戶">
+              <input type="radio" name="method" id="method-cash" value="cash" checked>
+              <label for="method-cash">現金</label>
+              <input type="radio" name="method" id="method-debit" value="debit">
+              <label for="method-debit">金融卡</label>
+            </div>
+          </fieldset>
+          <fieldset>
             <legend>類別</legend>
             <div class="chips" id="cat-chips"></div>
           </fieldset>
@@ -291,6 +278,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     </div>
 
     <div class="col-right">
+      <section class="card" aria-label="帳戶收支">
+        <div class="card-head"><h2>帳戶收支</h2><span class="hint">本月</span></div>
+        <div id="accounts"></div>
+      </section>
+
       <section class="card" aria-label="支出類別">
         <div class="card-head"><h2>支出類別</h2><span class="hint" id="bd-total"></span></div>
         <div id="breakdown"></div>
@@ -312,7 +304,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
         </div>
         <div id="list"></div>
         <div class="list-foot">
-          <button class="ghost" id="export" type="button">匯出 CSV</button>
+          <div class="foot-actions">
+            <button class="ghost" id="export" type="button">匯出 CSV</button>
+            <button class="ghost" id="clear-month" type="button">清除本月</button>
+            <button class="ghost" id="clear-all" type="button">清除全部</button>
+          </div>
           <span id="sample-note"></span>
         </div>
       </section>
@@ -338,6 +334,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   function todayParts() { var t = new Date(); return { y: t.getFullYear(), m: t.getMonth() + 1, d: t.getDate() }; }
   function money(n) { return 'NT$' + Math.round(n).toLocaleString('zh-TW'); }
   function signed(n) { return (n < 0 ? '−' : '+') + money(Math.abs(n)); }
+  function mname(k) { return k === 'cash' ? '現金' : (k === 'debit' ? '金融卡' : ''); }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -355,6 +352,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     type: 'expense',
     lastCat: { expense: '餐飲', income: '薪資' },
     confirmId: null,
+    confirmBulk: null,
     editingBudget: false,
     sel: null,
     chart: null,
@@ -363,6 +361,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   };
   var cloud = null;
   var confirmTimer = null;
+  var bulkTimer = null;
   var toastTimer = null;
 
   /* ---------- 儲存層 ---------- */
@@ -403,6 +402,17 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       await cloud.txCol.doc(id).delete();
     } else {
       state.txs = state.txs.filter(function (t) { return t.id !== id; });
+      saveLocal();
+      render();
+    }
+  }
+  async function removeMany(ids) {
+    if (cloud) {
+      for (var i = 0; i < ids.length; i++) await cloud.txCol.doc(ids[i]).delete();
+    } else {
+      var set = {};
+      ids.forEach(function (id) { set[id] = true; });
+      state.txs = state.txs.filter(function (t) { return !set[t.id]; });
       saveLocal();
       render();
     }
@@ -487,9 +497,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     var md = monthList();
     renderHeader();
     renderSummary(md);
+    renderAccounts(md);
     renderBreakdown(md);
     renderChart(md);
     renderList(md);
+    renderBulk(md);
     renderNote();
     renderSubmit();
   }
@@ -550,6 +562,28 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       '<span class="b-state' + (hot ? ' hot' : '') + '">已用 ' + pct + '%・' + tail + '</span></div>' +
       '<div class="meter' + (hot ? ' hot' : '') + '" role="progressbar" aria-label="本月預算使用率" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.min(100, pct) + '"><i style="width:' + Math.min(100, ratio * 100) + '%"></i></div>' +
       '<button type="button" class="link" id="budget-open">調整預算</button></div>';
+  }
+
+  function renderAccounts(md) {
+    var el = $('accounts');
+    if (!state.loaded) { el.innerHTML = '<p class="empty">正在讀取帳本…</p>'; return; }
+    var acc = { cash: { inc: 0, exp: 0, n: 0 }, debit: { inc: 0, exp: 0, n: 0 }, none: { inc: 0, exp: 0, n: 0 } };
+    md.forEach(function (t) {
+      var k = (t.method === 'cash' || t.method === 'debit') ? t.method : 'none';
+      acc[k].n++;
+      if (t.type === 'expense') acc[k].exp += t.amount; else acc[k].inc += t.amount;
+    });
+    var keys = ['cash', 'debit'];
+    if (acc.none.n) keys.push('none');
+    el.innerHTML = '<div class="acct-list">' + keys.map(function (k) {
+      var a = acc[k], bal = a.inc - a.exp;
+      return '<div class="acct"><div class="acct-name">' + (k === 'none' ? '未指定' : mname(k)) + '</div>' +
+        '<dl class="acct-stats">' +
+        '<div><dt>收入</dt><dd class="' + (a.inc > 0 ? 'pos' : '') + '">' + money(a.inc) + '</dd></div>' +
+        '<div><dt>支出</dt><dd>' + money(a.exp) + '</dd></div>' +
+        '<div><dt>結餘</dt><dd class="' + (bal < 0 ? 'neg-bal' : (bal > 0 ? 'pos' : '')) + '">' + (bal === 0 ? '' : (bal > 0 ? '+' : '−')) + money(Math.abs(bal)) + '</dd></div>' +
+        '</dl></div>';
+    }).join('') + '</div>';
   }
 
   function renderBreakdown(md) {
@@ -677,6 +711,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
             var conf = state.confirmId === t.id;
             var label = esc(t.category) + ' ' + money(t.amount);
             return '<li class="tx"><div class="tx-main"><span class="tag' + (inc ? ' inc' : '') + '">' + esc(t.category) + '</span>' +
+              (mname(t.method) ? '<span class="tag m">' + mname(t.method) + '</span>' : '') +
               (t.sample ? '<span class="tag sample">範例</span>' : '') +
               (t.note ? '<span class="tx-note">' + esc(t.note) + '</span>' : '') + '</div>' +
               '<div class="tx-amt' + (inc ? ' inc' : '') + '">' + (inc ? '+' : '−') + money(t.amount) + '</div>' +
@@ -686,6 +721,17 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     }
     var hasSample = state.txs.some(function (t) { return t.sample; });
     $('sample-note').innerHTML = hasSample ? '目前含範例資料 <button type="button" class="link" id="sample-clear">清除範例</button>' : '';
+  }
+
+  function renderBulk(md) {
+    var cm = $('clear-month'), ca = $('clear-all');
+    cm.disabled = !state.loaded || md.length === 0;
+    ca.disabled = !state.loaded || state.txs.length === 0;
+    var m1 = state.confirmBulk === 'month', a1 = state.confirmBulk === 'all';
+    cm.textContent = m1 ? '確定清除本月 ' + md.length + ' 筆？' : '清除本月';
+    ca.textContent = a1 ? '確定清除全部 ' + state.txs.length + ' 筆？' : '清除全部';
+    cm.classList.toggle('is-confirm', m1);
+    ca.classList.toggle('is-confirm', a1);
   }
 
   function renderNote() {
@@ -726,6 +772,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   function setView(y, m) {
     state.view = { y: y, m: m };
     state.confirmId = null;
+    state.confirmBulk = null;
     var dv = $('date').value;
     var pre = y + '-' + pad(m) + '-';
     if (dv.indexOf(pre) !== 0) {
@@ -761,6 +808,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     var note = $('note').value.trim();
     var catEl = document.querySelector('input[name="cat"]:checked');
     var cat = catEl ? catEl.value : '其他';
+    var mEl = document.querySelector('input[name="method"]:checked');
+    var method = mEl ? mEl.value : 'cash';
     if (!(amt > 0)) { showErr('請輸入大於 0 的金額。'); $('amount').focus(); return; }
     if (amt > 999999999) { showErr('金額太大了，請確認一下位數。'); $('amount').focus(); return; }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { showErr('請選擇日期。'); $('date').focus(); return; }
@@ -768,8 +817,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     var btn = $('submit');
     btn.disabled = true;
     try {
-      await addTx({ type: state.type, amount: amt, category: cat, note: note, date: date });
-      toast('已記錄 ' + cat + ' ' + money(amt));
+      await addTx({ type: state.type, amount: amt, category: cat, method: method, note: note, date: date });
+      toast('已記錄 ' + mname(method) + '・' + cat + ' ' + money(amt));
       $('amount').value = '';
       $('note').value = '';
       var y = +date.slice(0, 4), m = +date.slice(5, 7);
@@ -845,28 +894,53 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     if (e.target && e.target.id === 'sample-clear') clearSample(e.target);
   });
 
+  /* 整批清除（兩段式確認） */
+  async function bulkClear(kind) {
+    var list = kind === 'month' ? monthList() : state.txs;
+    var ids = list.map(function (t) { return t.id; });
+    if (!ids.length) return;
+    if (state.confirmBulk !== kind) {
+      state.confirmBulk = kind;
+      renderBulk(monthList());
+      clearTimeout(bulkTimer);
+      bulkTimer = setTimeout(function () { state.confirmBulk = null; renderBulk(monthList()); }, 4000);
+      return;
+    }
+    clearTimeout(bulkTimer);
+    state.confirmBulk = null;
+    try {
+      await removeMany(ids);
+      toast('已清除 ' + ids.length + ' 筆帳目');
+    } catch (err) {
+      toast('清除失敗，請稍後再試。', true);
+    }
+    render();
+  }
+  $('clear-month').addEventListener('click', function () { bulkClear('month'); });
+  $('clear-all').addEventListener('click', function () { bulkClear('all'); });
+
   /* 範例資料 */
   async function loadSample(btn) {
     btn.disabled = true;
     var D = function (d) { return dstr(T0.y, T0.m, Math.max(1, Math.min(d, T0.d))); };
     var rows = [
-      [1, 'income', '薪資', 42000, '本月薪資'],
-      [1, 'expense', '居家水電', 12500, '房租'],
-      [2, 'expense', '餐飲', 95, '早餐 蛋餅豆漿'],
-      [3, 'expense', '交通', 500, '悠遊卡加值'],
-      [4, 'expense', '餐飲', 180, '午餐 滷肉飯'],
-      [6, 'expense', '購物', 1290, '球鞋'],
-      [8, 'expense', '娛樂', 320, '電影'],
-      [9, 'expense', '餐飲', 560, '朋友聚餐'],
-      [12, 'expense', '居家水電', 1480, '電費'],
-      [15, 'income', '兼職', 3000, '接案'],
-      [18, 'expense', '醫療', 250, '掛號費'],
-      [21, 'expense', '學習', 680, '線上課程']
+      [1, 'income', '薪資', 42000, '本月薪資', 'debit'],
+      [1, 'expense', '居家水電', 12500, '房租', 'debit'],
+      [2, 'expense', '餐飲', 95, '早餐 蛋餅豆漿', 'cash'],
+      [3, 'expense', '交通', 500, '悠遊卡加值', 'cash'],
+      [4, 'expense', '餐飲', 180, '午餐 滷肉飯', 'cash'],
+      [6, 'expense', '購物', 1290, '球鞋', 'debit'],
+      [8, 'expense', '娛樂', 320, '電影', 'debit'],
+      [9, 'expense', '餐飲', 560, '朋友聚餐', 'cash'],
+      [12, 'expense', '居家水電', 1480, '電費', 'debit'],
+      [15, 'income', '兼職', 3000, '接案', 'debit'],
+      [18, 'expense', '醫療', 250, '掛號費', 'cash'],
+      [21, 'expense', '學習', 680, '線上課程', 'debit']
     ];
     try {
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        await addTx({ type: r[1], amount: r[3], category: r[2], note: r[4], date: D(r[0]), sample: true });
+        await addTx({ type: r[1], amount: r[3], category: r[2], method: r[5], note: r[4], date: D(r[0]), sample: true });
       }
       if (state.view.y !== T0.y || state.view.m !== T0.m) setView(T0.y, T0.m);
       toast('已載入範例資料，隨時可以清除');
@@ -933,8 +1007,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       if (a.date !== b.date) return a.date < b.date ? -1 : 1;
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
-    var lines = [['日期', '類型', '類別', '金額', '備註']].concat(rows.map(function (t) {
-      return [t.date, t.type === 'income' ? '收入' : '支出', t.category, t.amount, t.note || ''];
+    var lines = [['日期', '類型', '類別', '帳戶', '金額', '備註']].concat(rows.map(function (t) {
+      return [t.date, t.type === 'income' ? '收入' : '支出', t.category, mname(t.method), t.amount, t.note || ''];
     })).map(function (r) { return r.map(csvCell).join(','); });
     var csv = '﻿' + lines.join('\r\n');
     try {
