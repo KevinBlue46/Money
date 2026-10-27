@@ -219,6 +219,16 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 .toast.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); }
 .toast.bad { background: var(--warn); color: var(--bg); }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+/* 登入畫面與使用者列 */
+.auth-ov { position: fixed; inset: 0; background: var(--bg); z-index: 900; display: flex; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
+.auth-box { width: 100%; max-width: 380px; display: grid; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px 20px; }
+.auth-box h2 { font-family: var(--font-display); font-size: 26px; text-align: center; letter-spacing: 0.06em; }
+.auth-box input[type="password"] { width: 100%; min-height: 44px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; }
+.auth-box input[type="password"]:focus { border-color: var(--accent); }
+.auth-note { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+.userbar { margin-top: 4px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 2px 12px; }
+.userbar .ub-sync { font-family: var(--font-mono); font-size: 12px; }
+
 </style>
 
 <div class="app">
@@ -352,6 +362,11 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
+/* ★★★ 只需要改這一行：把 Apps Script 部署後的網址貼在引號裡面 ★★★ */
+window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbxd2auOQlcaBC4OnZ7SEroHl7MGLifh8NeesFEpLsdXEPUq6v-QrugjnYJtTCh_Upo_RA/exec' };
+</script>
+
+<script>
 (function () {
   'use strict';
 
@@ -426,6 +441,74 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   }
   function newId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+  /* ---------- Google 試算表帳號系統 ---------- */
+  var SHEET_URL = (window.APP_CONFIG && window.APP_CONFIG.SHEET_URL) || '';
+  var USE_SHEET = SHEET_URL.indexOf('https://script.google.com') === 0;
+  var SES_KEY = 'ledger.session';
+  var session = null;      // { user, token, exp }
+  var queue = [];          // 還沒傳到試算表的操作
+  var flushing = false;
+
+  function qKey() { return 'ledger.queue.' + (session ? session.user : ''); }
+  function cKey() { return 'ledger.cache.' + (session ? session.user : ''); }
+  function loadQueue() {
+    try { queue = JSON.parse(localStorage.getItem(qKey()) || '[]'); } catch (e) { queue = []; }
+    if (!Array.isArray(queue)) queue = [];
+  }
+  function saveQueue() { try { localStorage.setItem(qKey(), JSON.stringify(queue)); } catch (e) {} }
+  function saveCache() {
+    try { localStorage.setItem(cKey(), JSON.stringify({ txs: state.txs, budget: state.budget, opening: state.opening })); } catch (e) {}
+  }
+  function loadCache() {
+    try { var c = JSON.parse(localStorage.getItem(cKey()) || 'null'); return c && Array.isArray(c.txs) ? c : null; } catch (e) { return null; }
+  }
+  function setSync(text) { var el = $('sync-text'); if (el) el.textContent = text; }
+
+  async function api(action, payload) {
+    var ctl = new AbortController();
+    var tm = setTimeout(function () { ctl.abort(); }, 25000);
+    try {
+      var res = await fetch(SHEET_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action: action }, payload || {})), signal: ctl.signal });
+      return await res.json();
+    } finally { clearTimeout(tm); }
+  }
+  function hex(buf) { return Array.prototype.map.call(new Uint8Array(buf), function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); }
+  async function hashPw(user, pw) {
+    if (!(window.crypto && crypto.subtle)) throw new Error('nocrypto');
+    var enc = new TextEncoder();
+    var key = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveBits']);
+    var bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode('ledger-v2|' + user), iterations: 100000, hash: 'SHA-256' }, key, 256);
+    return hex(bits);
+  }
+
+  /* 背景同步：一次傳一批，失敗會自動重試，不會讓畫面卡住 */
+  async function flush() {
+    if (flushing || !session) return;
+    flushing = true;
+    var authFail = false;
+    try {
+      setSync(queue.length ? '同步中…' : '已同步');
+      while (queue.length && session) {
+        var op = queue[0], n = 1, p = op.p;
+        if (op.a === 'add') {
+          var txs = op.p.txs.slice();
+          while (n < queue.length && queue[n].a === 'add' && txs.length + queue[n].p.txs.length <= 100) { txs = txs.concat(queue[n].p.txs); n++; }
+          p = { txs: txs };
+        }
+        var r = await api(op.a, Object.assign({ token: session.token }, p));
+        if (r.ok) { queue.splice(0, n); saveQueue(); }
+        else if (r.code === 'auth') { authFail = true; break; }
+        else { queue.splice(0, n); saveQueue(); toast('有一筆資料同步被拒絕：' + (r.error || ''), true); }
+      }
+      if (authFail) { sessionExpired('登入已過期，請重新登入'); return; }
+      setSync('已同步');
+    } catch (e) {
+      setSync('同步失敗，稍後自動重試');
+      setTimeout(flush, 8000);
+    } finally { flushing = false; }
+  }
+  function enqueue(a, p) { queue.push({ a: a, p: p }); saveQueue(); saveCache(); flush(); }
+
   async function addTx(data) {
     data.createdAt = Date.now();
     if (cloud) {
@@ -433,7 +516,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     } else {
       var rec = Object.assign({ id: newId() }, data);
       state.txs = state.txs.concat([rec]);
-      saveLocal();
+      if (state.mode === 'sheet') enqueue('add', { txs: [rec] }); else saveLocal();
       render();
     }
   }
@@ -442,7 +525,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       await cloud.txCol.doc(id).delete();
     } else {
       state.txs = state.txs.filter(function (t) { return t.id !== id; });
-      saveLocal();
+      if (state.mode === 'sheet') enqueue('del', { ids: [id] }); else saveLocal();
       render();
     }
   }
@@ -453,7 +536,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       var set = {};
       ids.forEach(function (id) { set[id] = true; });
       state.txs = state.txs.filter(function (t) { return !set[t.id]; });
-      saveLocal();
+      if (state.mode === 'sheet') { for (var k = 0; k < ids.length; k += 500) enqueue('del', { ids: ids.slice(k, k + 500) }); } else saveLocal();
       render();
     }
   }
@@ -466,14 +549,183 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     } else {
       state.budget = next.budget;
       state.opening = next.opening;
-      saveLocal();
+      if (state.mode === 'sheet') enqueue('settings', { budget: next.budget, opening: next.opening }); else saveLocal();
       render();
     }
   }
+
+  /* ---------- 登入 / 註冊畫面 ---------- */
+  function showAuth(msg) {
+    var old = $('auth-ov');
+    if (old) old.remove();
+    var ov = document.createElement('div');
+    ov.className = 'auth-ov';
+    ov.id = 'auth-ov';
+    ov.innerHTML =
+      '<form class="auth-box" id="auth-form" novalidate>' +
+      '<h2>記帳本</h2>' +
+      '<div class="seg full" role="radiogroup" aria-label="登入或註冊">' +
+      '<input type="radio" name="authmode" id="am-login" value="login" checked><label for="am-login">登入</label>' +
+      '<input type="radio" name="authmode" id="am-register" value="register"><label for="am-register">註冊新帳號</label></div>' +
+      '<label class="field"><span>帳號</span><input id="au-user" type="text" maxlength="20" autocomplete="username" autocapitalize="none" placeholder="2～20 個中文、英文、數字或底線"></label>' +
+      '<label class="field"><span>密碼（至少 6 個字）</span><input id="au-pw" type="password" autocomplete="current-password"></label>' +
+      '<label class="field reg-only" hidden><span>再輸入一次密碼</span><input id="au-pw2" type="password" autocomplete="new-password"></label>' +
+      '<label class="field reg-only" hidden><span>邀請碼（向管理員索取）</span><input id="au-code" type="text" autocomplete="off"></label>' +
+      '<p class="auth-note">你的帳目會存在管理員的 Google 試算表。密碼經過加密，管理員看不到；但管理員看得到帳目內容，請不要把這個密碼拿去用在其他重要網站。</p>' +
+      '<p class="err" id="au-err" role="alert" hidden></p>' +
+      '<button class="primary" id="au-submit" type="submit">登入</button></form>';
+    document.body.appendChild(ov);
+    var regs = ov.querySelectorAll('.reg-only');
+    function setMode() {
+      var m = ov.querySelector('input[name="authmode"]:checked').value;
+      for (var i = 0; i < regs.length; i++) regs[i].hidden = m !== 'register';
+      $('au-submit').textContent = m === 'register' ? '註冊並登入' : '登入';
+      $('au-pw').setAttribute('autocomplete', m === 'register' ? 'new-password' : 'current-password');
+      $('au-err').hidden = true;
+    }
+    ov.querySelectorAll('input[name="authmode"]').forEach(function (r) { r.addEventListener('change', setMode); });
+    $('auth-form').addEventListener('submit', onAuthSubmit);
+    if (msg) authErr(msg);
+    $('au-user').focus();
+  }
+  function authErr(m) { var e = $('au-err'); if (e) { e.textContent = m; e.hidden = false; } }
+
+  async function onAuthSubmit(e) {
+    e.preventDefault();
+    var mode = document.querySelector('input[name="authmode"]:checked').value;
+    var user = $('au-user').value.trim().toLowerCase();
+    var pw = $('au-pw').value;
+    if (!/^[a-z0-9_一-龥]{2,20}$/.test(user)) { authErr('帳號請用 2～20 個中文、英文、數字或底線。'); return; }
+    if (pw.length < 6) { authErr('密碼至少要 6 個字。'); return; }
+    var code = '';
+    if (mode === 'register') {
+      if (pw !== $('au-pw2').value) { authErr('兩次輸入的密碼不一樣。'); return; }
+      code = $('au-code').value.trim();
+      if (!code) { authErr('請輸入邀請碼。'); return; }
+    }
+    var btn = $('au-submit');
+    btn.disabled = true;
+    var oldText = btn.textContent;
+    btn.textContent = '處理中…';
+    try {
+      var h = await hashPw(user, pw);
+      var r = await api(mode, { user: user, pw: h, code: code });
+      if (!r.ok) { authErr(r.error || '失敗了，請再試一次。'); return; }
+      session = { user: r.user, token: r.token, exp: r.exp };
+      try { localStorage.setItem(SES_KEY, JSON.stringify(session)); } catch (e2) {}
+      $('auth-ov').remove();
+      afterLogin();
+    } catch (err) {
+      authErr(err && err.message === 'nocrypto' ? '這個瀏覽器不支援加密，請改用 https 網址或新版瀏覽器。' : '連不上伺服器，請檢查網路後再試。');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  }
+
+  function renderUserBar() {
+    var bar = $('userbar');
+    if (!session) { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'userbar';
+      bar.className = 'userbar';
+      bar.innerHTML = '<span id="ub-name"></span><span class="ub-sync" id="sync-text"></span><button type="button" class="link" id="ub-out">登出</button>';
+      document.querySelector('.brand').appendChild(bar);
+      $('ub-out').addEventListener('click', onLogout);
+    }
+    $('ub-name').textContent = '👤 ' + session.user;
+  }
+
+  function resetState() {
+    state.txs = []; state.budget = 0; state.opening = { cash: 0, debit: 0 };
+    state.loaded = false; state.error = ''; state.confirmId = null; state.confirmBulk = null;
+  }
+  function sessionExpired(msg) {
+    try { localStorage.removeItem(SES_KEY); } catch (e) {}
+    session = null; queue = [];
+    resetState(); renderUserBar(); render(); showAuth(msg);
+  }
+  async function onLogout() {
+    if (queue.length) {
+      await flush();
+      if (queue.length && !confirm('還有 ' + queue.length + ' 筆資料沒同步到雲端（可能沒網路），現在登出會遺失。確定要登出嗎？')) return;
+    }
+    try { localStorage.removeItem(SES_KEY); localStorage.removeItem(cKey()); localStorage.removeItem(qKey()); } catch (e) {}
+    session = null; queue = [];
+    resetState(); renderUserBar(); render(); showAuth();
+  }
+
+  async function afterLogin() {
+    loadQueue();
+    renderUserBar();
+    resetState();
+    render();
+    await loadRemote();
+  }
+  async function loadRemote() {
+    try {
+      if (queue.length) await flush();
+      if (!session) return;
+      var r = await api('load', { token: session.token });
+      if (!r.ok) {
+        if (r.code === 'auth') { sessionExpired('登入已過期，請重新登入'); return; }
+        throw new Error(r.error || 'load');
+      }
+      state.txs = Array.isArray(r.txs) ? r.txs : [];
+      state.budget = +r.budget > 0 ? +r.budget : 0;
+      state.opening = readOpening(r.opening);
+      state.loaded = true; state.error = '';
+      saveCache(); render(); setSync('已同步');
+      maybeMigrate();
+    } catch (err) {
+      var c = loadCache();
+      if (c) {
+        state.txs = c.txs; state.budget = +c.budget > 0 ? +c.budget : 0; state.opening = readOpening(c.opening);
+        state.loaded = true; state.error = '';
+        render(); setSync('離線中，顯示上次的資料');
+        setTimeout(flush, 8000);
+      } else {
+        state.loaded = true;
+        state.error = '連不上伺服器，請檢查網路後重新整理頁面。';
+        render();
+      }
+    }
+  }
+  // 以前在這個瀏覽器記的舊帳目，第一次登入時問要不要搬進帳號
+  function maybeMigrate() {
+    try {
+      var flag = 'ledger.migrated.' + session.user;
+      if (localStorage.getItem(flag)) return;
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) { localStorage.setItem(flag, '1'); return; }
+      var o = JSON.parse(raw);
+      var old = (Array.isArray(o.txs) ? o.txs : []).filter(function (t) { return t && !t.sample && t.id; });
+      if (!old.length || state.txs.length > 0) { if (!old.length) localStorage.setItem(flag, '1'); return; }
+      localStorage.setItem(flag, '1');
+      if (!confirm('這個瀏覽器裡有 ' + old.length + ' 筆以前記的帳目，要搬進你的帳號嗎？（只會問這一次）')) return;
+      state.txs = old.slice();
+      for (var i = 0; i < old.length; i += 100) queue.push({ a: 'add', p: { txs: old.slice(i, i + 100) } });
+      var ob = readOpening(o.opening), bg = +o.budget > 0 ? +o.budget : 0;
+      if (bg > 0 || ob.cash > 0 || ob.debit > 0) {
+        state.budget = bg; state.opening = ob;
+        queue.push({ a: 'settings', p: { budget: bg, opening: ob } });
+      }
+      saveQueue(); saveCache(); render(); flush();
+    } catch (e) { /* 搬不了就算了 */ }
+  }
+  async function bootSheet() {
+    state.mode = 'sheet';
+    try { session = JSON.parse(localStorage.getItem(SES_KEY) || 'null'); } catch (e) { session = null; }
+    if (session && session.token && session.exp > Date.now()) { afterLogin(); }
+    else { session = null; showAuth(); }
+  }
+
   function saveBudget(n) { return saveSettings({ budget: n }); }
 
   async function boot() {
     render();
+    if (USE_SHEET) { bootSheet(); return; }
     var mode = 'local';
     try {
       var c = window.claude;
@@ -811,7 +1063,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
   function renderNote() {
     var s = '';
-    if (state.mode === 'cloud') s = '帳目存在你的帳號裡，只有登入的你看得到，換手機或電腦也能接著記。';
+    if (state.mode === 'sheet') s = '帳目存在你的帳號裡，換手機或電腦登入同一個帳號就能接著記。網站管理者看得到所有帳號的帳目。';
+    else if (state.mode === 'cloud') s = '帳目存在你的帳號裡，只有登入的你看得到，換手機或電腦也能接著記。';
     else if (state.mode === 'local') s = state.persistFail
       ? '這個瀏覽器不允許儲存資料，關閉頁面後帳目會消失。請先匯出 CSV 備份。'
       : '帳目只存在這個瀏覽器，清除網站資料後會消失。建議定期匯出 CSV 備份。';
@@ -894,6 +1147,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     try {
       await addTx({ type: state.type, amount: amt, category: cat, method: method, note: note, date: date });
       toast('已記錄 ' + mname(method) + '・' + cat + ' ' + money(amt));
+      if (window.__roast) { try { window.__roast({ type: state.type, amount: amt, category: cat }); } catch (e3) {} }
       $('amount').value = '';
       $('note').value = '';
       var y = +date.slice(0, 4), m = +date.slice(5, 7);
@@ -1114,9 +1368,19 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     })).map(function (r) { return r.map(csvCell).join(','); });
     var csv = '﻿' + lines.join('\r\n');
     try {
+      var fname = '記帳本_' + dstr(T0.y, T0.m, T0.d) + '.csv';
       var dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
-      if (!dl) { toast('這個環境無法下載檔案。', true); return; }
-      await dl.save({ filename: '記帳本_' + dstr(T0.y, T0.m, T0.d) + '.csv', data: csv });
+      if (dl) {
+        await dl.save({ filename: fname, data: csv });
+      } else {
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = fname;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      }
       toast('已匯出 CSV');
     } catch (err) {
       if (err && err.code === 'declined') return;
@@ -1130,5 +1394,223 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   boot();
 })();
 </script>
+
+
+<!-- ===== 嘲諷彈窗（開始） ===== -->
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- 支出：狠罵彈窗 ---------- */
+  var EXP_GENERAL = [
+    '錢包沒剩多少還敢花錢阿王八蛋！',
+    '你是覺得自己很有錢是不是？醒醒吧！',
+    '又花？你的存款正在哭你知道嗎？',
+    '花錢一時爽，月底吃土火葬場。',
+    '你賺錢的速度追得上花錢的速度嗎？想都別想！',
+    '這筆錢拿去存，十年後是富翁；現在花掉，你只是個冤大頭。',
+    '你是來這世上幫老闆賺錢的嗎？',
+    '手這麼閒怎麼不去打工？',
+    '你媽知道你這樣亂花錢嗎？',
+    '帳戶：我已經瘦到不成人形了，你還要榨我？',
+    '敗家！你的祖先在天上都搖頭了。',
+    '這筆真的是「必要」支出嗎？還是你腦袋進水？',
+    '每次都說最後一次，你的「最後一次」比連續劇還長。',
+    '再這樣下去，你老了只能睡公園。',
+    '恭喜你，又離財富自由遠了一步。',
+    '錢又不會自己長出來，你是種樹的嗎？',
+    '這個月的預算正在你背後默默流淚。',
+    '你的理財觀念跟你的自制力一樣：不存在。',
+    '荷包君發出嚴重警告：快住手啊笨蛋！',
+    '花吧花吧，反正吃土又不用錢。'
+  ];
+  var EXP_CAT = {
+    '餐飲': [
+      '吃吃吃，你是豬嗎？自己煮泡麵不行？',
+      '外食又外食，錢都變成馬桶裡的東西了。',
+      '又不是沒飯吃，這麼多錢拿去吃？'
+    ],
+    '交通': [
+      '走路不行嗎？你的腿是裝飾品？',
+      '到處亂跑，油錢車錢你出得起嗎？',
+      '你是在環島還是在燒錢？'
+    ],
+    '購物': [
+      '你家已經塞不下了，還買！',
+      '買了放著發霉的東西，你確定需要？',
+      '剁手吧你，購物車比你的存款還有料。'
+    ],
+    '居家水電': [
+      '電費水費？你是想把水電公司養成上市公司嗎？',
+      '冷氣開那麼強，你是住冰箱嗎？'
+    ],
+    '娛樂': [
+      '玩玩玩，玩到最後只剩玩具陪你吃土。',
+      '娛樂花這麼多，你的人生已經夠好笑了好嗎？',
+      '開心三分鐘，後悔一整個月。'
+    ],
+    '醫療': [
+      '生病就算了，下次多運動，別再讓錢包也受傷。',
+      '身體要顧，但荷包也很痛啊你知道嗎？'
+    ],
+    '學習': [
+      '學這麼多，學會怎麼存錢了嗎？',
+      '花錢買課程，不用的話就是買心安的。'
+    ],
+    '其他': [
+      '「其他」？連自己花去哪都不知道，你完蛋了。',
+      '不知道花在哪的錢，最容易變成悲劇。'
+    ]
+  };
+  var EXP_BIG = [
+    '這麼大一筆你手不會抖嗎？！',
+    '一次花這麼多，你是不是想破產？',
+    '這筆金額我看了都替你心痛！',
+    '你是撿到錢還是中樂透？'
+  ];
+  var EXP_SMALL = [
+    '小錢也是錢，積少成多你就窮得有理有據。',
+    '這點小錢你都要花？拿去存啦！',
+    '小額消費最致命，你就是這樣窮的。'
+  ];
+
+  /* ---------- 收入：嘲諷彈窗 ---------- */
+  var INC_GENERAL = [
+    '就賺了這些？我阿嬤撿回收都比你還賺！',
+    '這點錢也好意思記帳？',
+    '賺這麼少，也只能拿來買泡麵了。',
+    '恭喜，這筆錢連房租零頭都不夠。',
+    '你的老闆是不是在偷笑？',
+    '沒關係，反正你花得比賺得快，這錢活不過三天。',
+    '這收入，路邊乞丐看了都想借你錢。',
+    '賺這麼點，是在玩家家酒嗎？',
+    '你的薪水跟你的努力一樣：看不見。',
+    '別得意，通膨已經吃掉一半了。',
+    '這樣就想退休？夢裡什麼都有。',
+    '隔壁小孩的零用錢都比你多。',
+    '拿去存？利息連一碗滷肉飯都買不起。',
+    '賺錢的方式：慢、少、還累。',
+    '恭喜入帳，等等就要被你敗光的錢。',
+    '我還以為是打錯字，原來真的只有這樣。',
+    '你的錢包看到這筆：就這？',
+    '努力了這麼久，就換到這點？我都替你心疼。',
+    '要不要換個工作？不然你的存款會長蜘蛛網。',
+    '這收入，連我這個 AI 都想捐款給你。'
+  ];
+  var INC_CAT = {
+    '薪資': [
+      '領薪水的奴隸，今天也辛苦了（笑）。',
+      '薪水入帳三小時，你就會說「怎麼又沒錢了」。',
+      '這種薪水也敢叫月薪？'
+    ],
+    '獎金': [
+      '獎金這麼少，老闆是在施捨你嗎？',
+      '這獎金拿去買個便當，剩下的給老闆買咖啡。'
+    ],
+    '投資': [
+      '投資賺這點？不如把錢放床底。',
+      '這種報酬率，通膨都跑贏你。'
+    ],
+    '兼職': [
+      '兼職賺的這點錢，連你的交通費都不夠吧。',
+      '做這麼多，換來這點？你是慈善家嗎？'
+    ],
+    '其他': [
+      '「其他」收入？撿到的嗎？看起來也不怎麼樣。',
+      '來路不明的錢，通常去路也不明。'
+    ]
+  };
+  var INC_BIG = [
+    '哦？這麼多？是不是記錯了多打幾個零？',
+    '突然有錢了？別高興太早，你會花光的。',
+    '這麼大筆我不信，你是不是在騙我？'
+  ];
+  var INC_SMALL = [
+    '這種金額，路邊檢到零錢都比你多。',
+    '這錢連塞牙縫都不夠。',
+    '賺這麼少，你還記帳幹嘛？浪費墨水。'
+  ];
+
+  /* ---------- 小工具 ---------- */
+  function q(id) { return document.getElementById(id); }
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function money(n) { return 'NT$' + Math.round(n).toLocaleString('zh-TW'); }
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function deviceName() { return /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? '手機' : '電腦'; }
+  function mName(k) { return k === 'cash' ? '現金' : (k === 'debit' ? '金融卡' : ''); }
+
+  function chooseMsg(rec) {
+    var pool;
+    if (rec.type === 'expense') {
+      pool = EXP_GENERAL.slice();
+      if (EXP_CAT[rec.category]) pool = pool.concat(EXP_CAT[rec.category]);
+      pool = pool.concat(rec.amount >= 1000 ? EXP_BIG : (rec.amount <= 100 ? EXP_SMALL : []));
+    } else {
+      pool = INC_GENERAL.slice();
+      if (INC_CAT[rec.category]) pool = pool.concat(INC_CAT[rec.category]);
+      pool = pool.concat(rec.amount >= 50000 ? INC_BIG : (rec.amount <= 500 ? INC_SMALL : []));
+    }
+    return pick(pool);
+  }
+
+  /* ---------- 彈窗 ---------- */
+  function popupOff() {
+    try { return localStorage.getItem('roast.off') === '1'; } catch (e) { return false; }
+  }
+  var st = document.createElement('style');
+  st.textContent =
+    '@keyframes roastShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}' +
+    '@keyframes roastPop{from{transform:scale(.8);opacity:0}to{transform:scale(1);opacity:1}}' +
+    '.roast-ov{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}' +
+    '.roast-box{max-width:420px;width:100%;background:var(--surface,#12161C);border:2px solid var(--warn,#F2906F);border-radius:16px;padding:28px 22px;text-align:center;animation:roastPop .2s ease-out}' +
+    '.roast-box.inc{border-color:var(--income,#4DC4AB)}' +
+    '.roast-box.shake{animation:roastPop .2s ease-out,roastShake .5s .2s}' +
+    '.roast-emo{font-size:56px;line-height:1.1}' +
+    '.roast-amt{font-family:var(--font-mono,monospace);color:var(--muted,#98A4B4);margin:8px 0 14px}' +
+    '.roast-msg{font-size:20px;font-weight:700;line-height:1.5;color:var(--fg,#E8EDF3);margin-bottom:20px}' +
+    '.roast-btn{background:var(--warn,#F2906F);color:#0B1630;border:0;border-radius:8px;padding:12px 24px;font-weight:700;font-size:16px;cursor:pointer}' +
+    '.roast-box.inc .roast-btn{background:var(--income,#4DC4AB)}';
+  document.head.appendChild(st);
+
+  var closeTimer = null;
+  function showPopup(rec) {
+    if (popupOff()) return;
+    var old = document.querySelector('.roast-ov');
+    if (old) old.remove();
+    clearTimeout(closeTimer);
+    var isInc = rec.type === 'income';
+    var ov = document.createElement('div');
+    ov.className = 'roast-ov';
+    var box = document.createElement('div');
+    box.className = 'roast-box' + (isInc ? ' inc' : ' shake');
+    var emo = document.createElement('div');
+    emo.className = 'roast-emo';
+    emo.textContent = isInc ? '🤡' : '😡';
+    var amt = document.createElement('div');
+    amt.className = 'roast-amt';
+    amt.textContent = (isInc ? '收入 +' : '支出 −') + money(rec.amount) + '・' + rec.category;
+    var msg = document.createElement('div');
+    msg.className = 'roast-msg';
+    msg.textContent = chooseMsg(rec);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'roast-btn';
+    btn.textContent = isInc ? '……我會更努力的' : '我錯了，我不敢了';
+    function close() { ov.remove(); clearTimeout(closeTimer); document.removeEventListener('keydown', onKey); }
+    function onKey(e) { if (e.key === 'Escape' || e.key === 'Enter') close(); }
+    btn.addEventListener('click', close);
+    ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+    document.addEventListener('keydown', onKey);
+    box.appendChild(emo); box.appendChild(amt); box.appendChild(msg); box.appendChild(btn);
+    ov.appendChild(box);
+    document.body.appendChild(ov);
+    btn.focus();
+    closeTimer = setTimeout(close, 9000);
+  }
+
+  window.__roast = showPopup;
+})();
+</script>
+<!-- ===== 嘲諷彈窗（結束） ===== -->
 
 </body></html>
