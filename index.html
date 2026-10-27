@@ -108,6 +108,18 @@ button, input { font: inherit; color: inherit; }
   .col-left { position: sticky; top: 16px; }
 }
 
+/* 目前餘額 */
+.assets { display: grid; gap: 16px; margin-top: 16px; }
+.assets-main, .assets-side { min-width: 0; }
+.assets-main .big { font-size: clamp(30px, 8vw, 42px); }
+.a-note { font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.arow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
+.aval { font-family: var(--font-mono); font-weight: 500; font-size: 16px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.assets-side .link { margin-top: 8px; }
+.open-form { display: grid; gap: 12px; }
+.open-form .actions { display: flex; gap: 8px; }
+@media (min-width: 700px) { .assets { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); align-items: center; padding: 24px; } }
+
 /* 表單 */
 .form { display: grid; gap: 16px; }
 .field > span, .form legend { display: block; font-size: 13px; color: var(--muted); font-weight: 500; margin-bottom: 6px; padding: 0; }
@@ -242,6 +254,26 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     </dl>
   </section>
 
+  <section class="card assets" aria-label="目前餘額">
+    <div class="assets-main">
+      <div class="eyebrow">目前總金額</div>
+      <div class="big" id="assets-total"></div>
+      <p class="a-note">含起始金額，累計所有月份的收入與支出。</p>
+    </div>
+    <div class="assets-side">
+      <div id="assets-rows"></div>
+      <button class="link" id="open-edit" type="button">設定起始金額</button>
+      <form class="open-form" id="open-form" hidden novalidate>
+        <label class="field" for="open-cash"><span>現金起始金額</span><input id="open-cash" type="number" inputmode="numeric" min="0" step="1" placeholder="0"></label>
+        <label class="field" for="open-debit"><span>金融卡起始金額</span><input id="open-debit" type="number" inputmode="numeric" min="0" step="1" placeholder="0"></label>
+        <div class="actions">
+          <button class="primary sm" type="submit">儲存</button>
+          <button class="ghost sm" id="open-cancel" type="button">取消</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
   <main class="grid">
     <div class="col-left">
       <section class="card" aria-label="新增帳目">
@@ -333,8 +365,13 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
   function dstr(y, m, d) { return y + '-' + pad(m) + '-' + pad(d); }
   function todayParts() { var t = new Date(); return { y: t.getFullYear(), m: t.getMonth() + 1, d: t.getDate() }; }
   function money(n) { return 'NT$' + Math.round(n).toLocaleString('zh-TW'); }
+  function bigMoney(n) { return (n < 0 ? '−' : '') + '<small>NT$</small>' + Math.abs(Math.round(n)).toLocaleString('zh-TW'); }
   function signed(n) { return (n < 0 ? '−' : '+') + money(Math.abs(n)); }
   function mname(k) { return k === 'cash' ? '現金' : (k === 'debit' ? '金融卡' : ''); }
+  function readOpening(x) {
+    x = x || {};
+    return { cash: +x.cash > 0 ? Math.round(+x.cash) : 0, debit: +x.debit > 0 ? Math.round(+x.debit) : 0 };
+  }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -347,6 +384,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     mode: 'loading',          // loading | cloud | local
     txs: [],
     budget: 0,
+    opening: { cash: 0, debit: 0 },
+    editingOpening: false,
     view: { y: T0.y, m: T0.m },
     filter: 'all',
     type: 'expense',
@@ -372,13 +411,14 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
         var o = JSON.parse(raw);
         state.txs = Array.isArray(o.txs) ? o.txs : [];
         state.budget = +o.budget > 0 ? +o.budget : 0;
+        state.opening = readOpening(o.opening);
       }
     } catch (e) { /* 讀不到就從空帳本開始 */ }
     state.loaded = true;
   }
   function saveLocal() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ txs: state.txs, budget: state.budget }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ txs: state.txs, budget: state.budget, opening: state.opening }));
       state.persistFail = false;
     } catch (e) {
       state.persistFail = true;
@@ -417,15 +457,20 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       render();
     }
   }
-  async function saveBudget(n) {
+  async function saveSettings(patch) {
+    var next = { budget: state.budget, opening: state.opening };
+    if (patch.budget != null) next.budget = patch.budget;
+    if (patch.opening) next.opening = patch.opening;
     if (cloud) {
-      await cloud.metaDoc.set({ budget: n });
+      await cloud.metaDoc.set(next);
     } else {
-      state.budget = n;
+      state.budget = next.budget;
+      state.opening = next.opening;
       saveLocal();
       render();
     }
   }
+  function saveBudget(n) { return saveSettings({ budget: n }); }
 
   async function boot() {
     render();
@@ -471,6 +516,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     cloud.metaDoc.onSnapshot(function (s) {
       var d = s.data();
       state.budget = d && +d.budget > 0 ? +d.budget : 0;
+      state.opening = readOpening(d && d.opening);
       render();
     }, function () { /* 預算讀不到時維持原狀 */ });
   }
@@ -497,6 +543,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     var md = monthList();
     renderHeader();
     renderSummary(md);
+    renderAssets();
     renderAccounts(md);
     renderBreakdown(md);
     renderChart(md);
@@ -562,6 +609,34 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       '<span class="b-state' + (hot ? ' hot' : '') + '">已用 ' + pct + '%・' + tail + '</span></div>' +
       '<div class="meter' + (hot ? ' hot' : '') + '" role="progressbar" aria-label="本月預算使用率" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + Math.min(100, pct) + '"><i style="width:' + Math.min(100, ratio * 100) + '%"></i></div>' +
       '<button type="button" class="link" id="budget-open">調整預算</button></div>';
+  }
+
+  function renderAssets() {
+    var tEl = $('assets-total'), rEl = $('assets-rows');
+    $('open-form').hidden = !state.editingOpening;
+    $('open-edit').hidden = state.editingOpening;
+    rEl.hidden = state.editingOpening;
+    if (!state.loaded) { tEl.className = 'big'; tEl.innerHTML = '<small>NT$</small>—'; rEl.innerHTML = ''; return; }
+    var acc = { cash: { inc: 0, exp: 0, n: 0 }, debit: { inc: 0, exp: 0, n: 0 }, none: { inc: 0, exp: 0, n: 0 } };
+    state.txs.forEach(function (t) {
+      if (!t || (t.type !== 'expense' && t.type !== 'income') || !isFinite(t.amount)) return;
+      var k = (t.method === 'cash' || t.method === 'debit') ? t.method : 'none';
+      acc[k].n++;
+      if (t.type === 'expense') acc[k].exp += t.amount; else acc[k].inc += t.amount;
+    });
+    var bal = {
+      cash: state.opening.cash + acc.cash.inc - acc.cash.exp,
+      debit: state.opening.debit + acc.debit.inc - acc.debit.exp,
+      none: acc.none.inc - acc.none.exp
+    };
+    var total = bal.cash + bal.debit + (acc.none.n ? bal.none : 0);
+    tEl.className = 'big' + (total < 0 ? ' neg-bal' : '');
+    tEl.innerHTML = bigMoney(total);
+    var rows = [['現金', bal.cash], ['金融卡', bal.debit]];
+    if (acc.none.n) rows.push(['未指定帳戶', bal.none]);
+    rEl.innerHTML = rows.map(function (r) {
+      return '<div class="arow"><span>' + r[0] + '</span><span class="aval' + (r[1] < 0 ? ' neg-bal' : '') + '">' + (r[1] < 0 ? '−' : '') + money(Math.abs(r[1])) + '</span></div>';
+    }).join('');
   }
 
   function renderAccounts(md) {
@@ -854,6 +929,33 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       state.editingBudget = false;
       render();
       toast(val > 0 ? '已設定每月預算 ' + money(val) : '已清除預算');
+    } catch (err) {
+      toast('儲存失敗，請稍後再試。', true);
+    }
+  });
+
+  /* 起始金額 */
+  $('open-edit').addEventListener('click', function () {
+    state.editingOpening = true;
+    $('open-cash').value = state.opening.cash > 0 ? state.opening.cash : '';
+    $('open-debit').value = state.opening.debit > 0 ? state.opening.debit : '';
+    renderAssets();
+    $('open-cash').focus();
+  });
+  $('open-cancel').addEventListener('click', function () {
+    state.editingOpening = false;
+    renderAssets();
+  });
+  $('open-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    var c = Math.round(Number($('open-cash').value || 0));
+    var d = Math.round(Number($('open-debit').value || 0));
+    if (!(c >= 0) || !(d >= 0)) { toast('起始金額請輸入 0 以上的數字。', true); return; }
+    try {
+      await saveSettings({ opening: { cash: c, debit: d } });
+      state.editingOpening = false;
+      render();
+      toast('已更新起始金額');
     } catch (err) {
       toast('儲存失敗，請稍後再試。', true);
     }
