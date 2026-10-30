@@ -295,7 +295,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
   <section class="card assets" aria-label="目前餘額">
     <div class="assets-main">
-      <div class="eyebrow">目前總金額</div>
+      <div class="eyebrow">目前總金額 <button class="link" id="assets-toggle" type="button" aria-pressed="false">隱藏</button></div>
       <div class="big" id="assets-total"></div>
       <p class="a-note">含起始金額，累計所有月份的收入與支出。</p>
     </div>
@@ -1028,12 +1028,22 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbzY8On
       total += nb;
       rows.push(['未指定帳戶', nb]);
     }
-    tEl.className = 'big' + (total < 0 ? ' neg-bal' : '');
-    tEl.innerHTML = bigMoney(total);
+    var hide = assetsHidden();
+    var tg = $('assets-toggle');
+    tg.textContent = hide ? '顯示' : '隱藏';
+    tg.setAttribute('aria-pressed', hide ? 'true' : 'false');
+    tEl.className = 'big' + (!hide && total < 0 ? ' neg-bal' : '');
+    tEl.innerHTML = hide ? '<small>NT$</small>＊＊＊＊' : bigMoney(total);
     rEl.innerHTML = rows.map(function (r) {
-      return '<div class="arow"><span>' + esc(r[0]) + '</span><span class="aval' + (r[1] < 0 ? ' neg-bal' : '') + '">' + (r[1] < 0 ? '−' : '') + money(Math.abs(r[1])) + '</span></div>';
+      return '<div class="arow"><span>' + esc(r[0]) + '</span><span class="aval' + (!hide && r[1] < 0 ? ' neg-bal' : '') + '">' + (hide ? 'NT$＊＊＊＊' : (r[1] < 0 ? '−' : '') + money(Math.abs(r[1]))) + '</span></div>';
     }).join('');
   }
+  function assetsHidden() { try { return localStorage.getItem('ledger.hideAssets') === '1'; } catch (e) { return false; } }
+  document.addEventListener('click', function (e) {
+    if (!e.target || e.target.id !== 'assets-toggle') return;
+    try { localStorage.setItem('ledger.hideAssets', assetsHidden() ? '0' : '1'); } catch (er) {}
+    renderAssets();
+  });
 
   /* 本月各帳戶收支 */
   function renderAccounts(md) {
