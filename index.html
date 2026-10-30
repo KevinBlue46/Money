@@ -293,6 +293,18 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
     </form>
   </section>
 
+  <section class="card assets" aria-label="目前餘額">
+    <div class="assets-main">
+      <div class="eyebrow">目前總金額</div>
+      <div class="big" id="assets-total"></div>
+      <p class="a-note">含起始金額，累計所有月份的收入與支出。</p>
+    </div>
+    <div class="assets-side">
+      <div id="assets-rows"></div>
+      <button class="link" id="open-edit" type="button">管理帳戶與起始金額</button>
+    </div>
+  </section>
+
   <section class="summary" aria-label="本月總覽">
     <div class="sum-main">
       <div class="eyebrow">本月支出</div>
@@ -310,18 +322,6 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
       <div><dt>結餘</dt><dd id="sum-balance"></dd></div>
       <div><dt>日均支出</dt><dd id="sum-avg"></dd></div>
     </dl>
-  </section>
-
-  <section class="card assets" aria-label="目前餘額">
-    <div class="assets-main">
-      <div class="eyebrow">目前總金額</div>
-      <div class="big" id="assets-total"></div>
-      <p class="a-note">含起始金額，累計所有月份的收入與支出。</p>
-    </div>
-    <div class="assets-side">
-      <div id="assets-rows"></div>
-      <button class="link" id="open-edit" type="button">管理帳戶與起始金額</button>
-    </div>
   </section>
 
   <main class="grid">
@@ -365,8 +365,8 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
         <div id="breakdown"></div>
       </section>
 
-      <section class="card" aria-label="每日支出">
-        <div class="card-head"><h2>每日支出</h2><span class="hint" id="chart-readout"></span></div>
+      <section class="card" aria-label="今日收支">
+        <div class="card-head"><h2>今日收入及花費</h2><span class="hint" id="chart-readout"></span></div>
         <div id="daily-chart"></div>
       </section>
 
@@ -1091,43 +1091,24 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbzY8On
     return head + (c.vals[i] > 0 ? '支出 ' + money(c.vals[i]) + '（' + c.cnt[i] + ' 筆）' : '沒有支出');
   }
 
-  function renderChart(md) {
-    var v = state.view;
-    var n = new Date(v.y, v.m, 0).getDate();
-    var vals = [], cnt = [], i;
-    for (i = 0; i < n; i++) { vals.push(0); cnt.push(0); }
-    var total = 0;
-    md.forEach(function (t) {
-      if (t.type !== 'expense') return;
-      var d = parseInt(t.date.slice(8, 10), 10);
-      if (d >= 1 && d <= n) { vals[d - 1] += t.amount; cnt[d - 1]++; total += t.amount; }
+  function renderChart() {
+    var el = $('daily-chart'), ro = $('chart-readout');
+    state.chart = null; state.sel = null;
+    if (!state.loaded) { el.innerHTML = '<p class="empty">正在讀取帳本…</p>'; ro.textContent = ''; return; }
+    var p = todayParts();
+    var ds = p.y + '-' + ('0' + p.m).slice(-2) + '-' + ('0' + p.d).slice(-2);
+    var inc = 0, exp = 0, ni = 0, ne = 0;
+    state.txs.forEach(function (t) {
+      if (t.date !== ds) return;
+      if (t.type === 'income') { inc += t.amount; ni++; } else { exp += t.amount; ne++; }
     });
-    state.chart = { n: n, vals: vals, cnt: cnt, total: total };
-    state.sel = null;
-    var el = $('daily-chart');
-    if (!state.loaded) { el.innerHTML = '<p class="empty">正在讀取帳本…</p>'; $('chart-readout').textContent = ''; return; }
-    if (total === 0) {
-      el.innerHTML = '<p class="empty">這個月還沒有支出，記下第一筆就會出現長條圖。</p>';
-      $('chart-readout').textContent = '';
-      return;
-    }
-    var max = niceMax(Math.max.apply(null, vals));
-    var cols = '', labels = '';
-    var isCur = (v.y === T0.y && v.m === T0.m);
-    for (i = 0; i < n; i++) {
-      var d2 = i + 1;
-      var h = vals[i] > 0 ? (vals[i] / max * 100) : 0;
-      cols += '<div class="col" data-i="' + i + '"><i class="' + (vals[i] > 0 ? '' : 'zero') + '"' + (vals[i] > 0 ? ' style="height:' + h + '%"' : '') + '></i></div>';
-      var show = d2 === 1 || d2 === n || (d2 % 5 === 0 && n - d2 >= 3);
-      labels += '<div class="xl' + (isCur && d2 === T0.d ? ' today' : '') + '">' + (show ? '<span>' + d2 + '</span>' : '') + '</div>';
-    }
+    ro.textContent = p.m + '/' + p.d + ' 週' + WD[new Date(p.y, p.m - 1, p.d).getDay()];
     el.innerHTML =
-      '<div class="chart" style="--n:' + n + '">' +
-      '<div class="yaxis"><span>' + axisFmt(max) + '</span><span>' + axisFmt(max / 2) + '</span><span>0</span></div>' +
-      '<div class="plot"><div class="gl g100"></div><div class="gl g50"></div><div class="gl g0"></div>' +
-      '<div class="bars" id="bars" tabindex="0" role="group" aria-label="每日支出長條圖，可用左右方向鍵逐日查看" style="--n:' + n + '">' + cols + '</div></div>' +
-      '<div></div><div class="xaxis" style="--n:' + n + '">' + labels + '</div></div>';
-    $('chart-readout').textContent = readoutText(null);
+      '<dl class="sum-side">' +
+      '<div><dt>今日收入</dt><dd>' + money(inc) + '（' + ni + ' 筆）</dd></div>' +
+      '<div><dt>今日花費</dt><dd>' + money(exp) + '（' + ne + ' 筆）</dd></div>' +
+      '</dl>' +
+      (ni + ne === 0 ? '<p class="empty">今天還沒有記帳。</p>' : '');
   }
 
   function setSel(i) {
