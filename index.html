@@ -356,7 +356,7 @@ input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-o
 
     <div class="col-right">
       <section class="card" aria-label="帳戶收支">
-        <div class="card-head"><h2>帳戶收支</h2><span class="hint">本月</span></div>
+        <div class="card-head"><h2>帳戶收支</h2><span class="hint">本月　<button class="link" id="acc-toggle" type="button" aria-controls="accounts" aria-expanded="true">收合</button></span></div>
         <div id="accounts"></div>
       </section>
 
@@ -1038,6 +1038,19 @@ window.APP_CONFIG = { SHEET_URL: 'https://script.google.com/macros/s/AKfycbzY8On
       return '<div class="arow"><span>' + esc(r[0]) + '</span><span class="aval' + (!hide && r[1] < 0 ? ' neg-bal' : '') + '">' + (hide ? 'NT$＊＊＊＊' : (r[1] < 0 ? '−' : '') + money(Math.abs(r[1]))) + '</span></div>';
     }).join('');
   }
+  function accCollapsed() { try { return localStorage.getItem('ledger.collapseAcc') === '1'; } catch (e) { return false; } }
+  function applyAcc() {
+    var c = accCollapsed(), tg = $('acc-toggle');
+    $('accounts').hidden = c;
+    tg.textContent = c ? '展開' : '收合';
+    tg.setAttribute('aria-expanded', c ? 'false' : 'true');
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target || e.target.id !== 'acc-toggle') return;
+    try { localStorage.setItem('ledger.collapseAcc', accCollapsed() ? '0' : '1'); } catch (er) {}
+    applyAcc();
+  });
+  applyAcc();
   function assetsHidden() { try { return localStorage.getItem('ledger.hideAssets') === '1'; } catch (e) { return false; } }
   document.addEventListener('click', function (e) {
     if (!e.target || e.target.id !== 'assets-toggle') return;
